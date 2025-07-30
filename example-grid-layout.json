@@ -1,0 +1,170 @@
+{
+  "model_id": "example-model",
+  "version": "1.0",
+  "content": [
+    {
+      "type": "section",
+      "id": "feature_analysis",
+      "title": "Feature Analysis",
+      "description": "Analysis of model features with different layouts",
+      "dropdown": {
+        "enabled": true,
+        "default_selection": "global",
+        "options": [
+          {
+            "id": "global",
+            "label": "Global Analysis",
+            "description": "Overall feature importance across the entire dataset"
+          },
+          {
+            "id": "by_class", 
+            "label": "Per-Class Analysis",
+            "description": "Feature importance broken down by prediction class"
+          }
+        ]
+      },
+      "subsections": {
+        "global": {
+          "items_per_row": 2,
+          "items": [
+            {
+              "type": "bar_chart",
+              "id": "feature_importance_global",
+              "title": "Global Feature Importance",
+              "description": "Most important features across all predictions",
+              "data": {
+                "bars": [
+                  {"label": "Feature A", "value": 0.85, "color": "#1976d2"},
+                  {"label": "Feature B", "value": 0.72, "color": "#1976d2"},
+                  {"label": "Feature C", "value": 0.68, "color": "#1976d2"}
+                ],
+                "axis": {
+                  "x": {"label": "Features"},
+                  "y": {"label": "Importance Score"}
+                }
+              }
+            },
+            {
+              "type": "table",
+              "id": "feature_stats",
+              "title": "Feature Statistics",
+              "description": "Statistical summary of key features",
+              "data": {
+                "columns": [
+                  {"header": "Feature", "field": "feature"},
+                  {"header": "Mean", "field": "mean"},
+                  {"header": "Std Dev", "field": "std"}
+                ],
+                "rows": [
+                  {"feature": "Feature A", "mean": "0.45", "std": "0.12"},
+                  {"feature": "Feature B", "mean": "0.78", "std": "0.25"},
+                  {"feature": "Feature C", "mean": "0.32", "std": "0.09"}
+                ]
+              }
+            }
+          ]
+        },
+        "by_class": {
+          "items_per_row": 3,
+          "items": [
+            {
+              "type": "bar_chart",
+              "id": "class_a_features",
+              "title": "Class A Features",
+              "description": "Important features for Class A predictions",
+              "data": {
+                "bars": [
+                  {"label": "Feature X", "value": 0.90, "color": "#ff9800"},
+                  {"label": "Feature Y", "value": 0.65, "color": "#ff9800"}
+                ],
+                "axis": {
+                  "x": {"label": "Features"},
+                  "y": {"label": "Importance"}
+                }
+              }
+            },
+            {
+              "type": "bar_chart",
+              "id": "class_b_features", 
+              "title": "Class B Features",
+              "description": "Important features for Class B predictions",
+              "data": {
+                "bars": [
+                  {"label": "Feature Z", "value": 0.88, "color": "#4caf50"},
+                  {"label": "Feature W", "value": 0.72, "color": "#4caf50"}
+                ],
+                "axis": {
+                  "x": {"label": "Features"},
+                  "y": {"label": "Importance"}
+                }
+              }
+            },
+            {
+              "type": "bullet_list",
+              "id": "class_summary",
+              "title": "Class Comparison",
+              "description": "Key differences between classes",
+              "data": {
+                "bullets": [
+                  {"text": "Class A relies heavily on Feature X", "style": "emphasis"},
+                  {"text": "Class B shows strong dependency on Feature Z"},
+                  {"text": "Feature Y shows moderate importance across both classes"}
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "section",
+      "id": "traditional_section",
+      "title": "Traditional Section Example",
+      "description": "Example of a section with direct items_per_row configuration",
+      "items_per_row": 2,
+      "items": [
+        {
+          "type": "line_chart",
+          "id": "performance_trend",
+          "title": "Performance Over Time",
+          "description": "Model performance metrics tracked over time",
+          "data": {
+            "lines": [
+              {
+                "id": "accuracy",
+                "points": [
+                  {"x": 1, "y": 0.85},
+                  {"x": 2, "y": 0.87},
+                  {"x": 3, "y": 0.89},
+                  {"x": 4, "y": 0.91}
+                ],
+                "style": {"color": "#2196f3", "width": 2}
+              }
+            ],
+            "axis": {
+              "x": {"label": "Epoch"},
+              "y": {"label": "Accuracy"}
+            }
+          }
+        },
+        {
+          "type": "table",
+          "id": "model_metrics",
+          "title": "Model Metrics",
+          "description": "Current model performance metrics",
+          "data": {
+            "columns": [
+              {"header": "Metric", "field": "metric"},
+              {"header": "Value", "field": "value"}
+            ],
+            "rows": [
+              {"metric": "Accuracy", "value": "91.2%"},
+              {"metric": "Precision", "value": "89.5%"},
+              {"metric": "Recall", "value": "92.1%"}
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
