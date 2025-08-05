@@ -3,7 +3,7 @@ import { invokeModel } from "../../services/apis/invokeModel";
 import { ModelMeta, ModelInput, ModelInputPreset, ModelInputGrouping, ModelInputConstraint } from "../../types/ModelMeta";
 import { ModelInputs } from "../../types/ModelInputs";
 import { Section } from "../../types/ModelInsights";
-import { AlertTriangle, Bot } from "lucide-react";
+import { Bot } from "lucide-react";
 import { SectionsRenderer } from "../../components/insights";
 import { useParams } from "react-router";
 import { ModelInputField, ModelPresetField, ModelFormFieldset } from "../../components/form";
