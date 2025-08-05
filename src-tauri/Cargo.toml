@@ -1,7 +1,7 @@
 [package]
-name = "local-ml-catalog"
+name = "chanterelle"
 version = "0.1.0"
-description = "A Tauri App"
+description = "Deploy ML on your local machine"
 authors = ["you"]
 edition = "2021"
 

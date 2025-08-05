@@ -4,6 +4,9 @@ use std::process::{Child, Command, Stdio};
 // use HashMap
 use std::collections::HashMap;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub struct PythonProcess {
     child: Child,
     stdin: std::process::ChildStdin,
@@ -157,11 +160,11 @@ pub async fn load_model(
 
 /// Build the appropriate Python command based on the environment configuration
 fn build_python_command(python_env: &Option<PythonEnvironment>, model_dir: &Path) -> Result<Command, String> {
-    match python_env {
+    let mut command = match python_env {
         Some(PythonEnvironment::System) | None => {
             // Use system Python
             println!("Using system Python");
-            Ok(Command::new("python"))
+            Command::new("python")
         }
         Some(PythonEnvironment::Venv { path }) => {
             // Use virtual environment
@@ -182,7 +185,7 @@ fn build_python_command(python_env: &Option<PythonEnvironment>, model_dir: &Path
             }
             
             println!("Using venv Python at: {}", python_executable.display());
-            Ok(Command::new(python_executable))
+            Command::new(python_executable)
         }
         Some(PythonEnvironment::Virtualenv { path }) => {
             // Use virtualenv (same logic as venv)
@@ -203,16 +206,24 @@ fn build_python_command(python_env: &Option<PythonEnvironment>, model_dir: &Path
             }
             
             println!("Using virtualenv Python at: {}", python_executable.display());
-            Ok(Command::new(python_executable))
+            Command::new(python_executable)
         }
         Some(PythonEnvironment::Conda { name }) => {
             // Use conda environment
             println!("Using conda environment: {}", name);
             let mut cmd = Command::new("conda");
             cmd.args(["run", "-n", name, "python"]);
-            Ok(cmd)
+            cmd
         }
+    };
+    
+    // On Windows, configure the command to hide the console window
+    #[cfg(windows)]
+    {
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
+    
+    Ok(command)
 }
 
 fn ensure_base_handler_exists(model_dir: &Path) -> Result<(), String> {

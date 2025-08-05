@@ -57,7 +57,7 @@ impl Settings {
 
         let config_dir = config_dir
             .map_err(|_| "Could not get config directory")?
-            .join("YourAppName");
+            .join("Chanterelle");
 
         Ok(config_dir)
     }
