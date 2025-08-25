@@ -1,6 +1,6 @@
 // src/components/FirstTimeSetup.tsx
 import React from 'react';
-import { SettingsService } from '../services/api';
+import { SettingsService } from '../services/Settings';
 
 export const FirstTimeSetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const handleSelectDirectory = async () => {

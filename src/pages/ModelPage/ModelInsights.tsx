@@ -1,10 +1,11 @@
 import React from "react";
-import { ModelInsights, InsightItem } from "../../types/ModelInsights";
-import { SectionInsight as SharedSectionInsight, getItemIcon } from "../../components/insights";
+import { ModelInsights } from "../../types/ModelInsights";
+import { SectionOrItemType, SectionType, SectionComponent } from "../../components/insights";
+import { componentRegistry } from "../../components/insights";
 
-// Helper to flatten all items for ToC (sections and all insight items)
+// Recursive helper to flatten all items for ToC (sections and all insight items)
 function getAllItemsForToc(
-  items: InsightItem[],
+  items: SectionOrItemType[],
   level = 1,
   parentId = ""
 ): { id: string; title: string; level: number; type: string }[] {
@@ -18,17 +19,18 @@ function getAllItemsForToc(
     }
     // If section, recurse into its items or subsections
     if (item.type === "section") {
+      const section = item as SectionType;
       // Handle sections with dropdown/subsections
-      if (item.dropdown && item.subsections) {
+      if (section.dropdown && section.subsections) {
         // Add items from all subsections to ToC
-        // Object.values(item.subsections).forEach(subsection => {
+        // Object.values(section.subsections).forEach(subsection => {
         //   toc = toc.concat(getAllItemsForToc(subsection.items, level + 1, itemId));
         // });
         continue; // Skip adding section itself, only its items
-      } 
-      // Handle traditional sections with direct items
-      else if (item.items) {
-        toc = toc.concat(getAllItemsForToc(item.items, level + 1, itemId));
+      }
+      // Handle traditional sections with direct items (no dropdown)
+      else if (section.items) {
+        toc = toc.concat(getAllItemsForToc(section.items, level + 1, itemId));
       }
     }
   }
@@ -38,10 +40,9 @@ function getAllItemsForToc(
 // --- Main page layout ---
 interface ModelInsightsPageProps {
   insights: ModelInsights;
-  projectDir: string;
 }
 
-const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights, projectDir }) => {
+const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
   // const insights = model
   // Build Table of Content (ToC) from all items in all top-level sections
   const tocSections = getAllItemsForToc(insights.content);
@@ -51,26 +52,29 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights, project
       <aside className="w-64 flex-shrink-0 sticky top-0 h-screen overflow-y-auto bg-gray-50 border-r border-gray-200 p-4">
         <h2 className="text-lg font-bold mb-4">Table of Contents</h2>
         <ul>
-          {tocSections.map((sec) => (
-            <li
-              key={sec.id}
-              style={{ marginLeft: `${(sec.level - 1) * 0.5}rem` }}
-              className="mb-2 flex items-center"
-            >
-              <button
-                onClick={() => {
-                  const element = document.getElementById(sec.id);
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-                className="flex items-center text-blue-700 text-sm hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
+          {tocSections.map((sec) => {
+            const IconComponent = componentRegistry[sec.type]?.icon;
+            return (
+              <li
+                key={sec.id}
+                style={{ marginLeft: `${(sec.level - 1) * 0.5}rem` }}
+                className="mb-2 flex items-center"
               >
-                {getItemIcon(sec.type)}
-                {sec.title}
-              </button>
-            </li>
-          ))}
+                <button
+                  onClick={() => {
+                    const element = document.getElementById(sec.id);
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="flex items-center text-blue-700 text-sm hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
+                >
+                  {IconComponent && <IconComponent />}
+                  {sec.title}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </aside>
       {/* Main Content */}
@@ -79,7 +83,7 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights, project
           Model Insights: {insights.model_id} (v{insights.version})
         </h2>
         {insights.content.map((section) => (
-          <SharedSectionInsight key={section.id} section={section} model={insights} projectDir={projectDir} />
+          <SectionComponent key={section.id} section={section} />
         ))}
       </main>
     </div>

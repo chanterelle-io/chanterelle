@@ -1,15 +1,16 @@
 import type { ModelInputs } from "../../types/ModelInputs";
-import type { Section } from '../../types/ModelInsights';
+import type { SectionType } from "../../components/insights";
 import { invoke } from '@tauri-apps/api/core';
 
 // Rmk: for extra secure flow, invokeModel should make sure the user has access to the model (again)
-export async function invokeModel(project_name: string, inputs: ModelInputs): Promise<Section[]> {
+// Note: File inputs are currently handled as metadata objects. The backend handles file uploads or just references.
+export async function invokeModel(project_name: string, inputs: ModelInputs): Promise<SectionType[]> {
     console.log('invoking model for project:', project_name, 'with inputs:', inputs);
     const startTime = Date.now();
     try {
         // let r_warmup = await invoke('warmup_model', { projectName: project_name }) as string;
         // console.log('Model warmup response:', r_warmup);
-        let r = await invoke('invoke_model', { projectName: project_name, inputs }) as Section[] | { error: string };
+        let r = await invoke('invoke_model', { projectName: project_name, inputs }) as SectionType[] | { error: string };
         const endTime = Date.now();
         const timeWaited = endTime - startTime;
         console.log(`Model invocation completed in ${timeWaited}ms`);
@@ -32,7 +33,7 @@ export async function invokeModel(project_name: string, inputs: ModelInputs): Pr
         }
         
         console.log('Model meta fetched:', r);
-        return r as Section[];
+        return r as SectionType[];
     } catch (error) {
         console.error('Error invoking model:', error);
         if (typeof error === 'string' && error.includes('No projects directory set')) {
