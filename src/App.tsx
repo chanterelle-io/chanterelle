@@ -6,7 +6,8 @@ import ModelsCatalog from './pages/ModelsCatalog/ModelsCatalog';
 import ModelPage from './pages/ModelPage/ModelPage';
 import { Settings } from './pages/Settings/Settings';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { SettingsService } from './services/api';
+import { ProjectProvider } from './contexts/ProjectContext';
+import { SettingsService } from './services/Settings';
 
 const App: React.FC = () => {
   const [isFirstTimeSetupComplete, setIsFirstTimeSetupComplete] = useState(false);
@@ -64,22 +65,24 @@ const App: React.FC = () => {
 
   return (
     <NotificationProvider>
-      <Router>
-        <div className="flex flex-col min-h-screen bg-sky-100">
-          {/* <Header /> */}
-          <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<ModelsCatalog />} />
-              <Route
-                path="/model/:modelId"
-                element={<ModelPage />}
-              />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </main>
-          {/* <Footer /> */}
-        </div>
-      </Router>
+      <ProjectProvider>
+        <Router>
+          <div className="flex flex-col min-h-screen bg-sky-100">
+            {/* <Header /> */}
+            <main className="flex-grow">
+              <Routes>
+                <Route path="/" element={<ModelsCatalog />} />
+                <Route
+                  path="/model/:modelId"
+                  element={<ModelPage />}
+                />
+                <Route path="/settings" element={<Settings />} />
+              </Routes>
+            </main>
+            {/* <Footer /> */}
+          </div>
+        </Router>
+      </ProjectProvider>
     </NotificationProvider>
   );
 };

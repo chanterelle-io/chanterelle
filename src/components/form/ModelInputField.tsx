@@ -1,5 +1,6 @@
 import React from "react";
 import { ModelInput, ModelInputConstraint } from "../../types/ModelMeta";
+import { open } from '@tauri-apps/plugin-dialog';
 
 interface ModelInputFieldProps {
     input: ModelInput;
@@ -81,6 +82,76 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                 />
             )}
             
+            {input.type === "textarea" && (
+                <textarea
+                    name={input.name}
+                    value={value}
+                    required={input.required}
+                    rows={constraints?.rows || 4}
+                    placeholder={constraints?.placeholder}
+                    onChange={e => onChange(input.name, e.target.value)}
+                    className="border rounded px-2 py-1 resize-vertical"
+                />
+            )}
+            
+            {input.type === "file" && (
+                <div>
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            try {
+                                const filters = constraints?.extensions ? [{
+                                    name: 'Allowed files',
+                                    extensions: constraints.extensions.map(ext => ext.replace(/^\./, '')) // Remove leading dots if present
+                                }] : [];
+                                
+                                const selected = await open({
+                                    title: `Select ${input.label || input.name}`,
+                                    multiple: constraints?.multiple || false,
+                                    filters: filters.length > 0 ? filters : undefined,
+                                });
+                                
+                                if (selected) {
+                                    if (Array.isArray(selected)) {
+                                        // Multiple files selected
+                                        const fileObjects = selected.map(path => ({
+                                            path,
+                                            name: path.split(/[/\\]/).pop() || path
+                                        }));
+                                        onChange(input.name, fileObjects);
+                                    } else {
+                                        // Single file selected
+                                        const fileObject = {
+                                            path: selected,
+                                            name: selected.split(/[/\\]/).pop() || selected
+                                        };
+                                        onChange(input.name, fileObject);
+                                    }
+                                }
+                            } catch (error) {
+                                console.error('Error opening file dialog:', error);
+                            }
+                        }}
+                        className="border rounded px-2 py-1 w-full text-left bg-white hover:bg-gray-50"
+                    >
+                        {value ? 'Change file...' : 'Select file...'}
+                    </button>
+                    
+                    {/* Display selected file names */}
+                    {value && (
+                        <div className="mt-1 text-xs text-gray-600">
+                            {Array.isArray(value) ? (
+                                <div>
+                                    Selected files: {value.map((file: any) => file.name).join(', ')}
+                                </div>
+                            ) : (
+                                <div>Selected file: {value.name}</div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+            
             {input.description && (
                 <span className="text-xs text-gray-500 mt-1">{input.description}</span>
             )}
@@ -89,3 +160,34 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
 };
 
 export default ModelInputField;
+
+// {input.type === "file" && (
+//                 <div>
+//                     <input
+//                         type="file"
+//                         name={input.name}
+//                         required={input.required}
+//                         accept={constraints?.accept}
+//                         multiple={constraints?.multiple || false}
+//                         onChange={e => {
+//                             const files = e.target.files;
+//                             if (files) {
+//                                 onChange(input.name, constraints?.multiple ? Array.from(files) : files[0]);
+//                             }
+//                         }}
+//                         className="border rounded px-2 py-1 w-full"
+//                     />
+//                     {/* Display selected file names */}
+//                     {value && (
+//                         <div className="mt-1 text-xs text-gray-600">
+//                             {Array.isArray(value) ? (
+//                                 <div>
+//                                     Selected files: {value.map((file: File) => file.name).join(', ')}
+//                                 </div>
+//                             ) : (
+//                                 <div>Selected file: {value.name}</div>
+//                             )}
+//                         </div>
+//                     )}
+//                 </div>
+//             )}

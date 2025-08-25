@@ -9,6 +9,12 @@ export interface ModelInputConstraint {
         description?: string;
     }> | string[];
     regex?: string;
+    // For textarea
+    rows?: number;
+    placeholder?: string;
+    // For file input
+    extensions?: string[];
+    multiple?: boolean;
 }
 
 // Model Input Dependency Mapping
@@ -22,7 +28,7 @@ export interface ModelInputDependencyMapping {
 export interface ModelInput {
     name: string;
     label: string;
-    type: 'float' | 'int' | 'string' | 'category' | 'boolean';
+    type: 'float' | 'int' | 'string' | 'category' | 'boolean' | 'textarea' | 'file';
     unit?: string;
     required?: boolean;
     description?: string;

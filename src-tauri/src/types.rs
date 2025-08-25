@@ -45,6 +45,8 @@ pub enum ModelInputType {
     String,
     Category,
     Boolean,
+    Textarea,
+    File
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

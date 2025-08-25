@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useNotificationContext } from '../../contexts/NotificationContext';
-import { SettingsService, type Settings as SettingsType } from '../../services/api';
+import { SettingsService, type Settings as SettingsType } from '../../services/Settings';
 
 export const Settings: React.FC = () => {
   const navigate = useNavigate();

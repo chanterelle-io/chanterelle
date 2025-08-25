@@ -34,6 +34,7 @@ ChartJS.register(
   Legend
 );
 
+// **Charts** 
 // Table renderer
 export const TableInsight: React.FC<{ data: TableData }> = ({ data }) => (
   <div className="overflow-x-auto my-4">
@@ -159,6 +160,8 @@ export const BulletListInsight: React.FC<{ data: BulletListData }> = ({ data }) 
   </ul>
 );
 
+
+// **Helper functions**
 // Helper: get icon for item type
 export function getItemIcon(type: string) {
   switch (type) {
@@ -396,6 +399,8 @@ export const renderInsightItem = (item: InsightItem, level = 1, parentId = "", m
   }
 };
 
+
+// **Section Components** 
 interface SectionInsightProps {
   section: Section;
   level?: number;

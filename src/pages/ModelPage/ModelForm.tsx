@@ -2,11 +2,10 @@ import React, { useState } from "react";
 import { invokeModel } from "../../services/apis/invokeModel";
 import { ModelMeta, ModelInput, ModelInputPreset, ModelInputGrouping, ModelInputConstraint } from "../../types/ModelMeta";
 import { ModelInputs } from "../../types/ModelInputs";
-import { Section } from "../../types/ModelInsights";
+import { SectionType, SectionComponent } from "../../components/insights";
 import { Bot } from "lucide-react";
-import { SectionsRenderer } from "../../components/insights";
 import { useParams } from "react-router";
-import { ModelInputField, ModelPresetField, ModelFormFieldset } from "../../components/form";
+import { ModelFormFieldset } from "../../components/form";
 
 
 interface ModelFormProps {
@@ -17,6 +16,8 @@ const getDefaultValue = (input: ModelInput) => {
     if (input.default !== undefined) return input.default;
     if (input.type === "boolean") return false;
     if (input.type === "float" || input.type === "int") return "";
+    if (input.type === "textarea") return "";
+    if (input.type === "file") return null;
     return "";
 };
 
@@ -32,7 +33,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     );
     const [presetSelections, setPresetSelections] = useState<{ [presetName: string]: string }>({});
     // const [selectedForSensitivity, setSelectedForSensitivity] = useState<string | null>(null);
-    const [result, setResult] = useState<Section[] | null>(null);
+    const [result, setResult] = useState<SectionType[] | null>(null);
     const [predictLoading, setPredictLoading] = useState(false);
     // // Helper: get ModelInput by name
     // const getInputByName = (name: string) => model.inputs.find(i => i.name === name);
@@ -117,8 +118,19 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
         // Validate all required inputs
         const errors: string[] = [];
         model.inputs.forEach(input => {
-            if (input.required && !values[input.name]) {
-                errors.push(`Field "${input.label || input.name}" is required.`);
+            // if (input.required && !values[input.name]) {
+            //     errors.push(`Field "${input.label || input.name}" is required.`);
+            // }
+            if (input.required) {
+                if (input.type === "file") {
+                    // For file inputs, check if a file is selected
+                    if (!values[input.name] || 
+                        (Array.isArray(values[input.name]) && values[input.name].length === 0)) {
+                        errors.push(`File "${input.label || input.name}" is required.`);
+                    }
+                } else if (!values[input.name] && values[input.name] !== 0 && values[input.name] !== false) {
+                    errors.push(`Field "${input.label || input.name}" is required.`);
+                }
             }
             const constraints = getEffectiveConstraints(input);
             if (constraints?.regex && values[input.name] && !new RegExp(constraints.regex).test(values[input.name])) {
@@ -139,6 +151,23 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                     ? parseInt(values[input.name], 10)
                     : parseFloat(values[input.name]);
                 parsedValues[input.name] = isNaN(num) ? values[input.name] : num;
+            }
+            // Handle file inputs
+            if (input.type === "file" && values[input.name]) {
+                const fileValue = values[input.name];
+                if (Array.isArray(fileValue)) {
+                    // Multiple files - each has { path, name }
+                    parsedValues[input.name] = fileValue.map((file: any) => ({
+                        name: file.name,
+                        path: file.path
+                    }));
+                } else if (fileValue && typeof fileValue === 'object') {
+                    // Single file - has { path, name }
+                    parsedValues[input.name] = {
+                        name: fileValue.name,
+                        path: fileValue.path
+                    };
+                }
             }
         });
 
@@ -192,38 +221,38 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
 
                 {/* Ungrouped Presets */}
                 {ungroupedPresets.length > 0 && (
-                    <fieldset className="border rounded p-3 mb-4">
-                        <legend className="font-bold text-sm mb-2">Other Presets</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            {ungroupedPresets.map(preset => (
-                                <ModelPresetField
-                                    key={preset.input_preset}
-                                    preset={preset}
-                                    selectedValue={presetSelections[preset.input_preset]}
-                                    constraints={getEffectivePresetConstraints(preset)}
-                                    onPresetChange={handlePresetChange}
-                                />
-                            ))}
-                        </div>
-                    </fieldset>
+                    <ModelFormFieldset
+                        group={{
+                            grouping: "other-presets",
+                            description: "Other Presets",
+                            inputs: ungroupedPresets.map(preset => preset.input_preset),
+                            items: ungroupedPresets.map(preset => ({ type: "preset" as const, item: preset }))
+                        }}
+                        values={values}
+                        presetSelections={presetSelections}
+                        getEffectiveConstraints={getEffectiveConstraints}
+                        getEffectivePresetConstraints={getEffectivePresetConstraints}
+                        handleChange={handleChange}
+                        handlePresetChange={handlePresetChange}
+                    />
                 )}
 
                 {/* Ungrouped Inputs */}
                 {ungroupedInputs.length > 0 && (
-                    <fieldset className="border rounded p-3 mb-4">
-                        <legend className="font-bold text-sm mb-2">Other Inputs</legend>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {ungroupedInputs.map(input => (
-                                <ModelInputField
-                                    key={input.name}
-                                    input={input}
-                                    value={values[input.name]}
-                                    constraints={getEffectiveConstraints(input)}
-                                    onChange={handleChange}
-                                />
-                            ))}
-                        </div>
-                    </fieldset>
+                    <ModelFormFieldset
+                        group={{
+                            grouping: "other-inputs",
+                            description: "Other Inputs",
+                            inputs: ungroupedInputs.map(input => input.name),
+                            items: ungroupedInputs.map(input => ({ type: "input" as const, item: input }))
+                        }}
+                        values={values}
+                        presetSelections={presetSelections}
+                        getEffectiveConstraints={getEffectiveConstraints}
+                        getEffectivePresetConstraints={getEffectivePresetConstraints}
+                        handleChange={handleChange}
+                        handlePresetChange={handlePresetChange}
+                    />
                 )}
                 <div className="text-xs text-gray-500 mt-2">
                     <p>Note: Required fields are marked with an asterisk (*).</p>
@@ -242,16 +271,13 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
 
             </form>
             {result && result.length > 0 && (
-                // <div className={`mt-6 p-4 rounded-lg shadow-sm border ${
-                //     result[0].id === 'error' 
-                //         ? 'bg-red-50 border-red-200' 
-                //         : 'bg-green-50 border-green-200'
-                // }`}>
                 <div className="mt-6 p-4 rounded-lg">
-                    <SectionsRenderer
-                        sections={result}
-                        projectDir={modelId || ""}
-                    />
+                    {result.map((section) => (
+                        <SectionComponent 
+                            key={section.id} 
+                            section={section} 
+                        />
+                    ))}
                 </div>
             )}
         </div>

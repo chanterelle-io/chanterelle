@@ -5,12 +5,14 @@ import ModelForm from "./ModelForm";
 import { ArrowLeft, RotateCcw, Play, CheckCircle, AlertCircle } from "lucide-react";
 import { getModelMeta, ModelData } from "../../services/apis/getModelMeta";
 import { warmModel } from "../../services/apis/warmModel";
-// import type { ModelMeta } from "../../types/ModelMeta";
+import { useProjectContext } from '../../contexts/ProjectContext';
 import ModelInsightsPage from "./ModelInsights";
 
 const ModelPage: React.FC = () => {
     const { modelId } = useParams<{ modelId: string }>(); // actually it's project name
     const navigate = useNavigate();
+
+    const { setProjectPath } = useProjectContext();
 
     const [modelData, setModelData] = useState<ModelData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -27,7 +29,10 @@ const ModelPage: React.FC = () => {
         setLoading(true);
         setError(null);
         getModelMeta(modelId)
-            .then((data) => setModelData(data))
+            .then((data) => {
+                setModelData(data);
+                setProjectPath(data.project_path);
+            })
             // .catch((err) => setError(err.message))
             .catch((err) => {
                 console.error('Error loading model data 2:', err);
@@ -175,7 +180,7 @@ const ModelPage: React.FC = () => {
                     </div>
                     {/* Tab content */}
                     {activeTab === "detail" && <ModelDetail model={modelData.model} />}
-                    {activeTab === "insights" && modelData.findings && <ModelInsightsPage insights={modelData.findings} projectDir={modelData.project_path} />}
+                    {activeTab === "insights" && modelData.findings && <ModelInsightsPage insights={modelData.findings} />}
                     {activeTab === "form" && <ModelForm model={modelData.model} />}
                 </>
             )}
