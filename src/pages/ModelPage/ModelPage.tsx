@@ -153,7 +153,7 @@ const ModelPage: React.FC = () => {
                             }`}
                             onClick={() => setActiveTab("detail")}
                         >
-                            Data
+                            Model Card
                         </button>
                         {modelData.findings && (
                             <button
@@ -164,7 +164,7 @@ const ModelPage: React.FC = () => {
                                 }`}
                                 onClick={() => setActiveTab("insights")}
                             >
-                                Model
+                                Insights
                             </button>
                         )}
                         <button

@@ -44,6 +44,8 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     // Groupings
     const groupings: ModelInputGrouping[] = model.input_groupings || [];
 
+
+
     // Map groupings to their ordered items (inputs and presets interleaved)
     const grouped = groupings.map(group => {
         const items = group.inputs.map(name => {
@@ -224,7 +226,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                     <ModelFormFieldset
                         group={{
                             grouping: "other-presets",
-                            description: "Other Presets",
+                            description: groupings.length > 0 ? "Other Presets" : "Presets",
                             inputs: ungroupedPresets.map(preset => preset.input_preset),
                             items: ungroupedPresets.map(preset => ({ type: "preset" as const, item: preset }))
                         }}
@@ -242,7 +244,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                     <ModelFormFieldset
                         group={{
                             grouping: "other-inputs",
-                            description: "Other Inputs",
+                            description: groupings.length > 0 ? "Other Inputs" : "Inputs",
                             inputs: ungroupedInputs.map(input => input.name),
                             items: ungroupedInputs.map(input => ({ type: "input" as const, item: input }))
                         }}
