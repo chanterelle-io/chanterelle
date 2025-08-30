@@ -139,13 +139,13 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                     
                     {/* Display selected file names */}
                     {value && (
-                        <div className="mt-1 text-xs text-gray-600">
+                        <div className="mt-1 text-sm text-gray-600">
                             {Array.isArray(value) ? (
                                 <div>
-                                    Selected files: {value.map((file: any) => file.name).join(', ')}
+                                    Selected files: <strong>{value.map((file: any) => file.name).join(', ')}</strong>
                                 </div>
                             ) : (
-                                <div>Selected file: {value.name}</div>
+                                <div>Selected file: <strong>{value.name}</strong></div>
                             )}
                         </div>
                     )}

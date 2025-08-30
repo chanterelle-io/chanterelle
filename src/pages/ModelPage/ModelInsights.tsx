@@ -80,7 +80,8 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
       {/* Main Content */}
       <main className="flex-1 p-8 max-w-7xl mx-auto">
         <h2 className="text-2xl font-bold mb-6">
-          Model Insights: {insights.model_id} (v{insights.version})
+            Findings
+          {/* Model Insights: {insights.model_id} (v{insights.version}) */}
         </h2>
         {insights.content.map((section) => (
           <SectionComponent key={section.id} section={section} />

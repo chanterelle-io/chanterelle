@@ -191,7 +191,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
             )}
 
             {section.comment && (
-                <div className="text-sm italic text-gray-500 mt-3">{section.comment}</div>
+                <div className="text-m text-gray-800 mt-3">{section.comment}</div>
             )}
         </div>
     )
@@ -217,17 +217,21 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         const DataComponent = componentRegistry[item.type]?.Component;
         
         return (
-            <div key={item.id} id={itemId} className="mb-6 h-full" data-toc>
-                <h4 className="text-lg font-semibold mb-1 flex items-center">
-                    {IconComponent && <IconComponent />}
-                    {item.title}
-                </h4>
-                {item.description && (
-                    <p className="mb-2 text-gray-600">{item.description}</p>
-                )}
-                {DataComponent && <DataComponent { ...item } />}
+            <div key={item.id} id={itemId} className="mb-2 p-2" data-toc>
+                <div className="mb-3">
+                    <h4 className="text-lg font-semibold mb-1 flex items-center">
+                        {IconComponent && <IconComponent />}
+                        {item.title}
+                    </h4>
+                    {item.description && (
+                        <p className="text-sm text-gray-600">{item.description}</p>
+                    )}
+                </div>
+                <div className="mb-3">
+                    {DataComponent && <DataComponent { ...item } />}
+                </div>
                 {item.comment && (
-                    <div className="text-s italic text-gray-500 mt-1">{item.comment}</div>
+                    <div className="text-sm italic text-gray-800">{item.comment}</div>
                 )}
             </div>
         );

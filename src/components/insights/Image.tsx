@@ -7,47 +7,47 @@ import { useProjectContext } from "../../contexts/ProjectContext";
 // Data type for Image
 export interface ImageItem extends BaseItem {
     // type: 'image';
-    url_filename: string;
+    file_path: string;
     caption?: string;
 }
 
 // Helper function to get the correct image source
-const getImageSrc = (urlFilename: string, projectDir: string) => {
+const getImageSrc = (filePath: string, projectDir: string) => {
   try {
-    console.log('Processing image URL:', urlFilename);
-    
+    console.log('Processing image URL:', filePath);
+
     // If it's already a valid HTTP/HTTPS URL, use it as-is
-    if (urlFilename.startsWith('http://') || urlFilename.startsWith('https://')) {
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
       console.log('Using HTTP/HTTPS URL as-is');
-      return urlFilename;
+      return filePath;
     }
     
     // If it's a file:// URL, we need to clean it up first
-    if (urlFilename.startsWith('file://')) {
+    if (filePath.startsWith('file://')) {
       console.log('Processing file:// URL');
       
       // Decode the URL to get the actual file path
-      let decodedPath = decodeURIComponent(urlFilename);
+      let decodedPath = decodeURIComponent(filePath);
       console.log('Decoded path:', decodedPath);
       
       // Remove the file:// prefix and get just the path
-      let filePath = decodedPath.replace('file:///', '').replace('file://', '');
-      console.log('Extracted file path:', filePath);
+      let extractedPath = decodedPath.replace('file:///', '').replace('file://', '');
+      console.log('Extracted file path:', extractedPath);
       
       // Convert forward slashes back to backslashes for Windows
-      filePath = filePath.replace(/\//g, '\\');
-      console.log('Windows file path:', filePath);
+      extractedPath = extractedPath.replace(/\//g, '\\');
+      console.log('Windows file path:', extractedPath);
       
       // Convert it using Tauri's convertFileSrc
-      const converted = convertFileSrc(filePath);
+      const converted = convertFileSrc(extractedPath);
       console.log('Converted to:', converted);
       return converted;
     }
     
     // If it's a Windows absolute path (C:\...), convert it directly
-    if (urlFilename.match(/^[A-Za-z]:\\/)) {
+    if (filePath.match(/^[A-Za-z]:\\/)) {
       console.log('Converting Windows path directly');
-      const converted = convertFileSrc(urlFilename);
+      const converted = convertFileSrc(filePath);
       console.log('Converted to:', converted);
       return converted;
     }
@@ -57,13 +57,13 @@ const getImageSrc = (urlFilename: string, projectDir: string) => {
     let fullPath: string;
     
     // Check if it's a relative path (doesn't start with drive letter or protocol)
-    if (!urlFilename.match(/^[A-Za-z]:/) && !urlFilename.startsWith('/') && !urlFilename.includes('://')) {
+    if (!filePath.match(/^[A-Za-z]:/) && !filePath.startsWith('/') && !filePath.includes('://')) {
       // It's a relative path, combine with projectDir
       const separator = projectDir.endsWith('\\') || projectDir.endsWith('/') ? '' : '\\';
-      fullPath = projectDir + separator + urlFilename.replace(/\//g, '\\');
+      fullPath = projectDir + separator + filePath.replace(/\//g, '\\');
       console.log('Combined relative path:', fullPath);
     } else {
-      fullPath = urlFilename;
+      fullPath = filePath;
     }
     
     // Convert it using Tauri's convertFileSrc
@@ -72,7 +72,7 @@ const getImageSrc = (urlFilename: string, projectDir: string) => {
     return converted;
   } catch (error) {
     console.error('Error converting file path:', error);
-    return urlFilename; // fallback to original
+    return filePath; // fallback to original
   }
 };
 
@@ -80,32 +80,21 @@ const getImageSrc = (urlFilename: string, projectDir: string) => {
 export const ImageComponent: React.FC<ImageItem> = (item) => {
     const { projectPath } = useProjectContext();
     return (
-        <div className="my-4">
-            {/* <img
-                src={data.src}
-                alt={data.alt || "Insight image"}
-                width={data.width}
-                height={data.height}
-                className={`max-w-full h-auto rounded-lg shadow-sm ${data.className || ""}`}
-            />
-            {data.caption && (
-                <p className="text-sm text-gray-600 mt-2 text-center italic">
-                    {data.caption}
-                </p>
-            )} */}
-            <img
-                src={getImageSrc(item.url_filename, projectPath ?? "")}
-                alt={item.caption || item.url_filename}
-                className="max-w-full max-h-[30rem] border rounded shadow"
-                // style={{ objectFit: "contain" }}
-                onLoad={() => {
-                console.log('Image loaded successfully');
-                }}
-                onError={(e) => {
-                console.error('Failed to load image:', e);
-                console.log('Failed src:', getImageSrc(item.url_filename, projectPath ?? ""));
-                }}
-          />
+        <div className="w-full flex justify-center">
+            <div className="w-fit border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
+                <img
+                    src={getImageSrc(item.file_path, projectPath ?? "")}
+                    alt={item.caption || item.file_path}
+                    className="max-h-[65vh] w-full max-w-[80vh] object-contain"
+                    onLoad={() => {
+                    console.log('Image loaded successfully');
+                    }}
+                    onError={(e) => {
+                    console.error('Failed to load image:', e);
+                    console.log('Failed src:', getImageSrc(item.file_path, projectPath ?? ""));
+                    }}
+              />
+            </div>
         </div>
     );
 };

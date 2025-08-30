@@ -19,9 +19,9 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, onClick }) => (
             {/* <ModelLogo outputType={model.outputType} size={20}/>             */}
         </div>
         <p className="text-gray-600 mb-4 px-4 self-center">{model.description_short || model.description}</p>
-        <div className="flex flex-row flex-wrap gap-2 mb-2 self-center">
+        <div className="flex flex-row flex-wrap gap-2 mb-2 justify-center">
             {model.tags && Object.entries(model.tags).map(([key, value]) => (
-                <span key={key} className="bg-pink-100 text-pink-800 text-xs font-semibold px-2 py-1 rounded-lg">
+                <span key={key} className="bg-orange-200 text-orange-800 text-xs font-semibold px-2 py-1 rounded-lg">
                     {value}
                 </span>
             ))}
