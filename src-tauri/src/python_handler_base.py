@@ -8,7 +8,51 @@ import importlib.util
 import os
 import inspect
 import traceback
-from typing import Any, Dict
+import logging
+from typing import Any, Dict, Optional, TextIO
+
+# Protocol IO isolation: keep a dedicated handle to original stdout for JSON messages
+_PROTOCOL_OUT: Optional[TextIO] = None
+_IO_ISOLATED: bool = False
+
+
+def _setup_io_isolation() -> None:
+    """Reserve stdout for protocol JSON only; send all other output to stderr.
+
+    - Duplicate original stdout (fd=1) and keep it for protocol writes.
+    - Redirect fd=1 to fd=2 so accidental prints/C-level writes go to stderr.
+    - Point sys.stdout to sys.stderr for Python-level print().
+    - Reduce noisy ML logs and set logging to WARNING to stderr.
+    """
+    global _PROTOCOL_OUT, _IO_ISOLATED
+    if _IO_ISOLATED:
+        return
+
+    # Reduce noise from TF before imports
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+
+    try:
+        orig_stdout_fd = os.dup(1)
+        _PROTOCOL_OUT = os.fdopen(orig_stdout_fd, "w", buffering=1, encoding="utf-8")
+        os.dup2(2, 1)  # Redirect OS-level stdout to stderr
+        sys.stdout = sys.stderr  # Python print -> stderr
+    except Exception:
+        # Fallback: at least keep a handle to original stdout
+        _PROTOCOL_OUT = sys.__stdout__
+
+    try:
+        logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
+    except Exception:
+        pass
+
+    _IO_ISOLATED = True
+
+
+def _send_protocol_json(obj: Dict[str, Any]) -> None:
+    """Write a compact JSON line to the preserved protocol stdout pipe."""
+    out = _PROTOCOL_OUT or sys.__stdout__
+    out.write(json.dumps(obj, separators=(",", ":")) + "\n")
+    out.flush()
 
 
 def load_user_handler_module(handler_path: str):
@@ -233,10 +277,13 @@ class MLModelHandler:
 
     def run_communication_loop(self):
         """Run the main communication loop for stdin/stdout protocol."""
+    # IO isolation is performed once at process start
         # Initialize model
         init_result = self.initialize()
         if init_result["status"] != "ready":
-            print(json.dumps(init_result), file=sys.stderr)
+            # Emit structured error on protocol stdout for the Rust side to consume
+            _send_protocol_json(init_result)
+            # Also exit to signal fatal init failure
             sys.exit(1)
         
         print("Model ready. Enter JSON requests (one per line):", file=sys.stderr)
@@ -249,16 +296,17 @@ class MLModelHandler:
             # Handle health check ping
             if line == '{"ping": true}':
                 result = self.health_check()
-                print(json.dumps(result), flush=True)
+                _send_protocol_json(result)
                 continue
             
             # Process regular requests
             result = self.handle_request(line)
-            print(json.dumps(result), flush=True)
+            _send_protocol_json(result)
 
 
 if __name__ == "__main__":
     # Get the user's handler file path from command line argument
+    _setup_io_isolation()
     if len(sys.argv) < 2:
         print("Error: handler_io.py path required as argument", file=sys.stderr)
         sys.exit(1)
