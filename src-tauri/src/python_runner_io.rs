@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 // use HashMap
@@ -132,7 +132,7 @@ pub async fn load_model(
     *state.python_process.lock().unwrap() = Some(python_process);
 
     // Wait a moment for Python to initialize and load model
-    std::thread::sleep(std::time::Duration::from_millis(2000)); // Increased wait time
+    std::thread::sleep(std::time::Duration::from_millis(2000));
 
     // Check if process is still running and verify system-level existence
     match check_python_process_health(state.clone()).await {
@@ -141,7 +141,7 @@ pub async fn load_model(
         }
         Err(e) => {
             // Get more detailed error information
-            let detailed_error = get_detailed_process_error(state.clone(), &e).await;
+            let detailed_error = get_detailed_process_error(state.clone(), &e);
             println!("Process validation failed: {}", detailed_error);
             return Err(format!("Process validation failed: {}", detailed_error));
         }
@@ -272,15 +272,25 @@ fn read_response_from_python(process: &mut PythonProcess) -> Result<serde_json::
     let mut response_line = String::new();
     match process.stdout.read_line(&mut response_line) {
         Ok(0) => {
-            // Check stderr for any error messages
-            let mut stderr_line = String::new();
-            if process.stderr.read_line(&mut stderr_line).is_ok() && !stderr_line.is_empty() {
-                return Err(format!(
-                    "Python process ended unexpectedly. Stderr: {}",
-                    stderr_line.trim()
-                ));
+            // Only drain stderr if the process has actually exited
+            match process.child.try_wait() {
+                Ok(Some(_)) => {
+                    // Process exited; drain all stderr for diagnostics
+                    let mut buf = String::new();
+                    let _ = process.stderr.read_to_string(&mut buf);
+                    if buf.trim().is_empty() {
+                        return Err("Python process ended unexpectedly (EOF)".to_string());
+                    } else {
+                        return Err(format!("Python process ended unexpectedly. Stderr: {}", buf.trim()));
+                    }
+                }
+                Ok(None) => {
+                    return Err("Python stdout closed (EOF) while process still running".to_string());
+                }
+                Err(e) => {
+                    return Err(format!("Failed to check Python process status after EOF: {}", e));
+                }
             }
-            return Err("Python process ended unexpectedly (EOF)".to_string());
         }
         Ok(_) => {
             println!("Received from Python: {}", response_line.trim());
@@ -358,8 +368,8 @@ fn read_response_from_python(process: &mut PythonProcess) -> Result<serde_json::
     Ok(parsed_response)
 }
 
-// Enhanced function to get detailed error information
-async fn get_detailed_process_error(state: tauri::State<'_, AppState>, original_error: &str) -> String {
+// Enhanced function to get detailed error information (synchronous, avoids peeking stdout)
+fn get_detailed_process_error(state: tauri::State<'_, AppState>, original_error: &str) -> String {
     let mut guard = state.python_process.lock().unwrap();
     
     if let Some(ref mut process) = guard.as_mut() {
@@ -380,80 +390,45 @@ async fn get_detailed_process_error(state: tauri::State<'_, AppState>, original_
             Err(e) => format!("Failed to check process status: {}", e),
         };
         
-        // Try to read any stderr output
-        let stderr_output = read_available_stderr(process);
-        
-        // Try to read any stdout output that might contain error info
-        let stdout_output = read_available_stdout(process);
-        
-        format!(
-            "Original error: {}. PID: {}. Status: {}. Stderr: {}. Stdout: {}",
-            original_error,
-            pid,
-            status_info,
-            stderr_output.unwrap_or_else(|| "No stderr output".to_string()),
-            stdout_output.unwrap_or_else(|| "No stdout output".to_string())
-        )
+        // Only drain stderr/stdout fully if process has exited; otherwise, avoid consuming streams
+        let (stderr_output, stdout_output) = match process.child.try_wait() {
+            Ok(Some(_)) => {
+                let mut buf = String::new();
+                let _ = process.stderr.read_to_string(&mut buf);
+                let stderr_opt = if buf.trim().is_empty() { None } else { Some(buf.trim().to_string()) };
+
+                let mut obuf = String::new();
+                let _ = process.stdout.read_to_string(&mut obuf);
+                let stdout_opt = if obuf.trim().is_empty() { None } else { Some(obuf.trim().to_string()) };
+                (stderr_opt, stdout_opt)
+            }
+            _ => (None, None),
+        };
+
+        match (stderr_output, stdout_output) {
+            (Some(stderr), Some(stdout)) => format!(
+                "Original error: {}. PID: {}. Status: {}. Stderr: {}. Stdout: {}",
+                original_error, pid, status_info, stderr, stdout
+            ),
+            (Some(stderr), None) => format!(
+                "Original error: {}. PID: {}. Status: {}. Stderr: {}",
+                original_error, pid, status_info, stderr
+            ),
+            (None, Some(stdout)) => format!(
+                "Original error: {}. PID: {}. Status: {}. Stdout: {}",
+                original_error, pid, status_info, stdout
+            ),
+            (None, None) => format!(
+                "Original error: {}. PID: {}. Status: {}.",
+                original_error, pid, status_info
+            ),
+        }
     } else {
         format!("Original error: {}. No Python process found in state", original_error)
     }
 }
 
-// Helper function to read available stderr without blocking
-fn read_available_stderr(process: &mut PythonProcess) -> Option<String> {
-    let mut stderr_content = String::new();
-    let mut line = String::new();
-    
-    // Try to read up to 5 lines from stderr
-    for _ in 0..5 {
-        line.clear();
-        match process.stderr.read_line(&mut line) {
-            Ok(0) => break, // EOF
-            Ok(_) => {
-                stderr_content.push_str(&line);
-                if stderr_content.len() > 1000 { // Limit output length
-                    stderr_content.push_str("... (truncated)");
-                    break;
-                }
-            }
-            Err(_) => break, // Error or would block
-        }
-    }
-    
-    if stderr_content.is_empty() {
-        None
-    } else {
-        Some(stderr_content.trim().to_string())
-    }
-}
-
-// Helper function to read available stdout without blocking
-fn read_available_stdout(process: &mut PythonProcess) -> Option<String> {
-    let mut stdout_content = String::new();
-    let mut line = String::new();
-    
-    // Try to read up to 3 lines from stdout
-    for _ in 0..3 {
-        line.clear();
-        match process.stdout.read_line(&mut line) {
-            Ok(0) => break, // EOF
-            Ok(_) => {
-                stdout_content.push_str(&line);
-                if stdout_content.len() > 500 { // Limit output length
-                    stdout_content.push_str("... (truncated)");
-                    break;
-                }
-            }
-            Err(_) => break, // Error or would block
-        }
-    }
-    
-    if stdout_content.is_empty() {
-        None
-    } else {
-        Some(stdout_content.trim().to_string())
-    }
-}
+// Helper removed: avoid reading stderr here to preserve logs for detailed error reporting
 
 // Enhanced validation function with more detailed error reporting
 // This checks if the process did not exit unexpectedly or gave an error
@@ -496,12 +471,8 @@ pub async fn check_python_process_health(
         
         // First check if process is alive
         if let Err(e) = validate_process_alive(process) {
-            // If process is dead, try to get more info from stderr
-            let stderr_info = read_available_stderr(process)
-                .map(|s| format!(" Last stderr: {}", s))
-                .unwrap_or_else(|| " No stderr output available".to_string());
-            
-            return Err(format!("{}.{}", e, stderr_info));
+            // Avoid draining stderr here; higher-level code will collect detailed diagnostics
+            return Err(e);
         }
         
         Ok(format!("Python process is running (PID: {})", pid))
