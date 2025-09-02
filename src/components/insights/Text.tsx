@@ -39,13 +39,14 @@ export interface BulletPoint {
 }
 
 // Item type
-export interface TextItem extends BaseItem {
-    // type: 'text';
-    data: TextData;
-}
+// export interface TextItem extends BaseItem {
+//     // type: 'text';
+//     data: TextData;
+// }
+export type TextItem = BaseItem & TextData;
 
 // Text Component
-export const TextComponent: React.FC<TextItem> = ({ data }) => {
+export const TextComponent: React.FC<TextItem> = ( data ) => {
     // Early returns: Error handling
     // Check if data exists
     if (!data) {
@@ -168,11 +169,11 @@ export const TextComponent: React.FC<TextItem> = ({ data }) => {
     return (
         <div className="w-full flex justify-center">
             {/* Show style warning if using default styling */}
-            {!data.style && (
+            {/* {!data.style && (
                 <div className="mb-2 p-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded">
                     ℹ️ Info: Using default text styling (style configuration missing)
                 </div>
-            )}
+            )} */}
             
             <div className={containerClasses}>
                 <div className="space-y-4">
