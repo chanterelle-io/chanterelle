@@ -64,6 +64,12 @@ impl Drop for PythonProcess {
 use crate::AppState;
 use crate::types::{ModelMeta, PythonEnvironment};
 
+// load_model flow:
+// spawn Python
+// wait for the single init JSON on stdout
+// store the process
+// run the ping-based check_model_ready for an extra end-to-end verification
+
 pub async fn load_model(
     projects_dir: &str,
     project_name: &str,
@@ -116,13 +122,62 @@ pub async fn load_model(
         .map_err(|e| format!("Failed to start Python: {}", e))?;
 
     let stdin = child.stdin.take().unwrap();
-    let stdout = BufReader::new(child.stdout.take().unwrap());
-    let stderr = BufReader::new(child.stderr.take().unwrap());
+    let mut stdout = BufReader::new(child.stdout.take().unwrap());
+    let mut stderr = BufReader::new(child.stderr.take().unwrap());
 
     // Get process ID before storing
     let process_id = child.id();
     println!("Started Python process with PID: {}", process_id);
 
+    // Handshake: expect a single JSON line announcing readiness or an error
+    let mut init_line = String::new();
+    // read_line waits until it sees a newline, EOF, or an error.
+    match stdout.read_line(&mut init_line) {
+        Ok(0) => { // 0 bytes from stdout means EOF with zero bytes read on that call
+            // Process may have exited without stdout message; try to provide diagnostics
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    let mut err_buf = String::new();
+                    let _ = stderr.read_to_string(&mut err_buf);
+                    let msg = if err_buf.trim().is_empty() {
+                        "Python process exited during initialization (EOF)".to_string()
+                    } else {
+                        format!("Python initialization failed. Stderr: {}", err_buf.trim())
+                    };
+                    return Err(msg);
+                }
+                Ok(None) => {
+                    return Err("Python stdout closed (EOF) while process still running".to_string());
+                }
+                Err(e) => {
+                    return Err(format!("Failed checking Python status after EOF: {}", e));
+                }
+            }
+        }
+        Ok(_) => {
+            println!("Init from Python: {}", init_line.trim());
+            let val: serde_json::Value = serde_json::from_str(init_line.trim())
+                .map_err(|e| format!("Failed to parse Python init JSON: {}. Raw: '{}'", e, init_line.trim()))?;
+            if let Some(status) = val.get("status").and_then(|v| v.as_str()) {
+                if status != "ready" {
+                    // Prefer detailed error if present
+                    let err_msg = val
+                        .get("summary")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| val.get("error").and_then(|v| v.as_str()))
+                        .unwrap_or("Model initialization error");
+                    return Err(format!("Python reported initialization failure: {}", err_msg));
+                }
+            } else {
+                return Err("Invalid initialization message from Python (missing 'status')".to_string());
+            }
+        }
+        Err(e) => {
+            return Err(format!("Failed to read Python initialization message: {}", e));
+        }
+    }
+
+    // Only store the process after successful handshake
     let python_process = PythonProcess {
         child,
         stdin,
@@ -131,21 +186,7 @@ pub async fn load_model(
     };
     *state.python_process.lock().unwrap() = Some(python_process);
 
-    // Wait a moment for Python to initialize and load model
-    std::thread::sleep(std::time::Duration::from_millis(2000));
-
-    // Check if process is still running and verify system-level existence
-    match check_python_process_health(state.clone()).await {
-        Ok(status_msg) => {
-            println!("Process health check passed: {}", status_msg);
-        }
-        Err(e) => {
-            // Get more detailed error information
-            let detailed_error = get_detailed_process_error(state.clone(), &e);
-            println!("Process validation failed: {}", detailed_error);
-            return Err(format!("Process validation failed: {}", detailed_error));
-        }
-    }
+    // Handshake already ensured the process is running and ready; proceed to model readiness check
 
     // Verify the model is actually loaded and ready
     match check_model_ready(state).await {
@@ -368,66 +409,6 @@ fn read_response_from_python(process: &mut PythonProcess) -> Result<serde_json::
     Ok(parsed_response)
 }
 
-// Enhanced function to get detailed error information (synchronous, avoids peeking stdout)
-fn get_detailed_process_error(state: tauri::State<'_, AppState>, original_error: &str) -> String {
-    let mut guard = state.python_process.lock().unwrap();
-    
-    if let Some(ref mut process) = guard.as_mut() {
-        let pid = get_process_id(process);
-        
-        // Check process exit status
-        let status_info = match process.child.try_wait() {
-            Ok(Some(status)) => {
-                if status.success() {
-                    format!("Process exited successfully (code: 0)")
-                } else if let Some(code) = status.code() {
-                    format!("Process exited with error code: {}", code)
-                } else {
-                    "Process was terminated by signal".to_string()
-                }
-            }
-            Ok(None) => "Process is still running".to_string(),
-            Err(e) => format!("Failed to check process status: {}", e),
-        };
-        
-        // Only drain stderr/stdout fully if process has exited; otherwise, avoid consuming streams
-        let (stderr_output, stdout_output) = match process.child.try_wait() {
-            Ok(Some(_)) => {
-                let mut buf = String::new();
-                let _ = process.stderr.read_to_string(&mut buf);
-                let stderr_opt = if buf.trim().is_empty() { None } else { Some(buf.trim().to_string()) };
-
-                let mut obuf = String::new();
-                let _ = process.stdout.read_to_string(&mut obuf);
-                let stdout_opt = if obuf.trim().is_empty() { None } else { Some(obuf.trim().to_string()) };
-                (stderr_opt, stdout_opt)
-            }
-            _ => (None, None),
-        };
-
-        match (stderr_output, stdout_output) {
-            (Some(stderr), Some(stdout)) => format!(
-                "Original error: {}. PID: {}. Status: {}. Stderr: {}. Stdout: {}",
-                original_error, pid, status_info, stderr, stdout
-            ),
-            (Some(stderr), None) => format!(
-                "Original error: {}. PID: {}. Status: {}. Stderr: {}",
-                original_error, pid, status_info, stderr
-            ),
-            (None, Some(stdout)) => format!(
-                "Original error: {}. PID: {}. Status: {}. Stdout: {}",
-                original_error, pid, status_info, stdout
-            ),
-            (None, None) => format!(
-                "Original error: {}. PID: {}. Status: {}.",
-                original_error, pid, status_info
-            ),
-        }
-    } else {
-        format!("Original error: {}. No Python process found in state", original_error)
-    }
-}
-
 // Helper removed: avoid reading stderr here to preserve logs for detailed error reporting
 
 // Enhanced validation function with more detailed error reporting
@@ -455,29 +436,6 @@ fn validate_process_alive(process: &mut PythonProcess) -> Result<(), String> {
             "Failed to check Python process (PID: {}) status: {}. This might indicate the process crashed or system resource issues.",
             pid, e
         )),
-    }
-}
-
-// Comprehensive health check (public API)
-// This checks if the Python process exists and is alive
-// It uses validate_process_alive
-pub async fn check_python_process_health(
-    state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
-    let mut guard = state.python_process.lock().unwrap();
-
-    if let Some(ref mut process) = guard.as_mut() {
-        let pid = get_process_id(process);
-        
-        // First check if process is alive
-        if let Err(e) = validate_process_alive(process) {
-            // Avoid draining stderr here; higher-level code will collect detailed diagnostics
-            return Err(e);
-        }
-        
-        Ok(format!("Python process is running (PID: {})", pid))
-    } else {
-        Err("Python process not started - no process found in application state".to_string())
     }
 }
 
