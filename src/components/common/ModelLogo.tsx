@@ -12,11 +12,11 @@ const ModelLogo: React.FC<ModelLogoProps> = ({ outputType, size }) => {
     return (
         <>
             {outputType === "classification" ? (
-                <Shapes className="text-blue-500" size={size} />
+                <Shapes className="text-blue-500 dark:text-blue-400" size={size} />
             ) : outputType === "regression" ? (
-                <Hash className="text-blue-500" size={size} />
+                <Hash className="text-blue-500 dark:text-blue-400" size={size} />
             ) : (
-                <Brain className="text-blue-500" size={size} />
+                <Brain className="text-blue-500 dark:text-blue-400" size={size} />
             )}
         </>
     );

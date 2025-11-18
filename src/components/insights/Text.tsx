@@ -51,7 +51,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
     // Check if data exists
     if (!data) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: No data provided for text component
             </div>
         );
@@ -60,7 +60,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
     // Check if content exists
     if (!data.content || !Array.isArray(data.content)) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: Missing or invalid 'content' array
             </div>
         );
@@ -69,7 +69,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
     // Check if content is empty
     if (data.content.length === 0) {
         return (
-            <div className="my-4 p-4 text-center text-yellow-600 bg-yellow-50 border border-yellow-200 rounded">
+            <div className="my-4 p-4 text-center text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded">
                 ⚠️ Warning: No content provided
             </div>
         );
@@ -87,10 +87,10 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
     if (validContent.length === 0) {
         const invalidContentCount = data.content.length;
         return (
-            <div className="my-4 p-4 text-center text-orange-600 bg-orange-50 border border-orange-200 rounded">
+            <div className="my-4 p-4 text-center text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded">
                 ⚠️ Warning: Found {invalidContentCount} content item(s) but none contain valid text
                 <br />
-                <small className="text-gray-600">Each content item needs a non-empty text property</small>
+                <small className="text-gray-600 dark:text-gray-400">Each content item needs a non-empty text property</small>
             </div>
         );
     }

@@ -26,8 +26,8 @@ const ModelFormFieldset: React.FC<ModelFormFieldsetProps> = ({
     handlePresetChange
 }) => {
     return (
-        <fieldset className="border rounded p-3 mb-4">
-            <legend className="font-bold bg-gray-50 px-2 text-sm mb-2">
+        <fieldset className="border border-gray-300 dark:border-slate-600 rounded p-3 mb-4">
+            <legend className="font-bold bg-gray-50 dark:bg-slate-700 dark:text-slate-200 px-2 text-sm mb-2">
                 {group.description || group.grouping}
             </legend>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
