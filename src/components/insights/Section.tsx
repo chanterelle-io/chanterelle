@@ -129,20 +129,20 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
     const getColorClasses = (color?: string) => {
         switch (color) {
             case 'red':
-                return 'bg-red-50 border-red-300';
+                return 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700';
             case 'green':
-                return 'bg-green-50 border-green-300';
+                return 'bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700';
             case 'blue':
-                return 'bg-blue-50 border-blue-300';
+                return 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700';
             case 'yellow':
-                return 'bg-yellow-50 border-yellow-300';
+                return 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700';
             case 'purple':
-                return 'bg-purple-50 border-purple-300';
+                return 'bg-purple-50 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700';
             case 'orange':
-                return 'bg-orange-50 border-orange-300';
+                return 'bg-orange-50 dark:bg-orange-900/30 border-orange-300 dark:border-orange-700';
             case 'white':
             default:
-                return 'bg-white border-gray-300';
+                return 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600';
         }
     };
 
@@ -153,7 +153,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
             </div>
             
             {section.description && (
-                <p className="mb-3 text-gray-600">{section.description}</p>
+                <p className="mb-3 text-gray-600 dark:text-gray-300">{section.description}</p>
             )}
 
             {/* Dropdown for subsections */}
@@ -162,7 +162,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
                     <select
                         value={selectedOption}
                         onChange={(e) => setSelectedOption(e.target.value)}
-                        className="border border-gray-300 rounded px-3 py-2"
+                        className="border border-gray-300 dark:border-slate-600 rounded px-3 py-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                     >
                         {section.dropdown.options.map((option) => (
                             <option key={option.id} value={option.id}>

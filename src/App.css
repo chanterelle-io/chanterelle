@@ -1,5 +1,63 @@
 @import "tailwindcss";
 
+@variant dark (.dark &);
+
+/* Light/Dark theme root variable definitions */
+:root {
+  /* Tailwind sky-100 */
+  --color-bg: #e0f2fe;
+  /* Tailwind slate-900 */
+  --color-text: #0f172a;
+}
+
+.dark:root, :root.dark {
+  /* Tailwind slate-900 */
+  --color-bg: #0f172a;
+  /* Tailwind slate-100 */
+  --color-text: #f1f5f9;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.25s, color 0.25s;
+}
+
+/* Plain CSS dark mode test (not relying on Tailwind dark: variants) */
+#theme-word-test {
+  margin: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  border: 3px solid #444;
+  background: #f5f5f5;
+  color: #222;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+html.dark #theme-word-test {
+  background: linear-gradient(135deg,#062a42,#0d3d2f);
+  border-color: #1fa884;
+  color: #e9fdf7;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5), 0 0 0 1px #1fa88455 inset;
+}
+html.dark #theme-word-test .mode-label { color: #87fad7; }
+html.dark #theme-word-test .note { color: #b5d9d1; }
+html:not(.dark) #theme-word-test .mode-label { color: #0b5d4a; }
+html:not(.dark) #theme-word-test .note { color: #555; }
+
+/* Pulse ring to make difference unmistakable */
+#theme-word-test .pulse {
+  display:inline-block;
+  width:10px; height:10px; border-radius:50%; margin-right:6px;
+  background:#0b5d4a;
+  animation: pulseLight 1.8s infinite ease-in-out;
+}
+html.dark #theme-word-test .pulse { background:#1fa884; animation:pulseDark 1.8s infinite ease-in-out; }
+@keyframes pulseLight { 0%,100%{transform:scale(.6);opacity:.5}50%{transform:scale(1);opacity:1} }
+@keyframes pulseDark { 0%,100%{transform:scale(.6);opacity:.7}50%{transform:scale(1.1);opacity:1} }
+
 /* Custom animations and utilities */
 @keyframes spin-slow {
   from {

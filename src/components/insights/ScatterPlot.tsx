@@ -41,7 +41,7 @@ export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data }) => {
     // Check if data exists
     if (!data) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: No data provided for scatter plot
             </div>
         );
@@ -138,7 +138,7 @@ export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data }) => {
                     ℹ️ Info: Using default axis labels (axis configuration missing)
                 </div>
             )}
-            <div className="w-full max-w-2xl h-96 border border-gray-300 rounded-lg p-4 bg-white">
+            <div className="w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800">
                 <Scatter data={chartData} options={options} />
             </div>
         </div>

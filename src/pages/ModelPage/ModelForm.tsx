@@ -205,7 +205,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
 
 
     return (
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 mb-6 transition-colors border border-transparent dark:border-slate-700">
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Grouped sections */}
                 {grouped.map(group => (
@@ -256,7 +256,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                         handlePresetChange={handlePresetChange}
                     />
                 )}
-                <div className="text-xs text-gray-500 mt-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     <p>Note: Required fields are marked with an asterisk (*).</p>
                     <p>Ensure all inputs are valid before submitting.</p>
                 </div>
@@ -273,7 +273,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
 
             </form>
             {result && result.length > 0 && (
-                <div className="mt-6 p-4 rounded-lg">
+                <div className="mt-6 p-4 rounded-lg bg-white dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600">
                     {result.map((section) => (
                         <SectionComponent 
                             key={section.id} 

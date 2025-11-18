@@ -13,9 +13,17 @@
     "windows": [
       {
         "title": "Chanterelle",
-        "width": 800,
-        "height": 600,
-        "maximized": true
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "maximized": true,
+        "decorations": false,
+        "titleBarStyle": "Overlay",
+        "transparent": false,
+        "shadow": true,
+        "resizable": true,
+        "center": true
       }
     ],
     "security": {

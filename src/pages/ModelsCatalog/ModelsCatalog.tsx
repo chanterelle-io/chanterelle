@@ -26,6 +26,9 @@ const ModelsCatalog: React.FC = () => {
     };
 
     useEffect(() => {
+        // Scroll to top when navigating to this page
+        window.scrollTo(0, 0);
+        
         loadModels();
         document.title = "ML @ SSAB - Home";
     }, []);
@@ -37,14 +40,14 @@ const ModelsCatalog: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-indigo-50">
+        <div className="min-h-screen bg-indigo-50 dark:bg-slate-900 transition-colors">
             {/* <Header /> */}
-            <div className="fixed top-6 right-6 flex items-center justify-between mb-4">
+            <div className="fixed top-12 right-6 flex items-center justify-between mb-4 z-40">
                     {/* <div className="flex-1"></div> */}
                     <button
                         onClick={loadModels}
                         disabled={loading}
-                        className="flex items-center text-blue-600 hover:text-blue-400 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                        className="flex items-center text-blue-600 hover:text-blue-400 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-gray-200 dark:border-slate-600 transition-all"
                         title="Refresh models list"
                     >
                         <RotateCcw className={`mr-1 ${loading ? 'animate-spin' : ''}`} size={16} /> Refresh
@@ -58,18 +61,18 @@ const ModelsCatalog: React.FC = () => {
                             className="h-16 w-16 object-contain"
                         />
                     {/* <Brain className="text-blue-600" size={24} /> */}
-                    <h1 className="ml-6 text-5xl font-bold font-mono text-blue-950 flex items-center">
+                    <h1 className="ml-6 text-5xl font-bold font-mono text-blue-950 dark:text-slate-100 flex items-center">
                         Chanterelle
                     </h1>
                 </div>
                 <div className="flex flex-col items-center justify-center mb-8">
-                    <p className="ml-2 text-l font-mono text-gray-700 mb-3">
+                    <p className="ml-2 text-l font-mono text-gray-700 dark:text-gray-300 mb-3">
                         Explore and Invoke Machine Learning Models
                     </p>
                     <input
                         type="text"
                         placeholder="Search models..."
-                        className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full md:w-1/2 px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -77,7 +80,7 @@ const ModelsCatalog: React.FC = () => {
 
                 {loading && (
                     <div className="text-center py-12">
-                        <p className="text-gray-500">Loading models...</p>
+                        <p className="text-gray-500 dark:text-gray-400">Loading models...</p>
                     </div>
                 )}
 
@@ -99,7 +102,7 @@ const ModelsCatalog: React.FC = () => {
 
                         {filteredModels.length === 0 && (
                             <div className="col-span-3 text-center py-12">
-                                <p className="text-gray-500">No models found matching your search criteria.</p>
+                                <p className="text-gray-500 dark:text-gray-400">No models found matching your search criteria.</p>
                             </div>
                         )}
                     </div>
@@ -109,7 +112,7 @@ const ModelsCatalog: React.FC = () => {
             {/* Settings Icon */}
             <button
                 onClick={() => navigate('/settings')}
-                className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-colors duration-200 z-10"
+                className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white p-3 rounded-full shadow-lg transition-colors duration-200 z-10"
                 title="Settings"
             >
                 <Settings size={20} />

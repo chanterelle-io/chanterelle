@@ -20,11 +20,11 @@ const ModelPresetField: React.FC<ModelPresetFieldProps> = ({ preset, selectedVal
 
     return (
         <div className="flex flex-col">
-            <label className="font-normal mb-1">{preset.label} - preset </label>
+            <label className="font-normal mb-1 text-slate-800 dark:text-slate-200">{preset.label} - preset </label>
             <select
                 value={selectedValue || ""}
                 onChange={e => onPresetChange(preset, e.target.value)}
-                className="border rounded px-2 py-1"
+                className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-700 dark:text-gray-100"
             >
                 <option value="">Select preset...</option>
                 {filteredPresets.map(p => (
@@ -32,7 +32,7 @@ const ModelPresetField: React.FC<ModelPresetFieldProps> = ({ preset, selectedVal
                 ))}
             </select>
             {preset.description && (
-                <div className="text-xs text-gray-500 mt-1">{preset.description}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{preset.description}</div>
             )}
         </div>
     );

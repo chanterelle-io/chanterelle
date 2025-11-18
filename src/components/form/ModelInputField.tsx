@@ -20,10 +20,10 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
 
     return (
         <div className="flex flex-col">
-            <label className="font-medium mb-1">
+            <label className="font-medium mb-1 text-slate-800 dark:text-slate-200">
                 {input.label || input.name}
                 {input.required && <span className="text-red-500 ml-1">*</span>}
-                {input.unit && <span className="ml-2 text-xs text-gray-400">({input.unit})</span>}
+                {input.unit && <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">({input.unit})</span>}
             </label>
             
             {input.type === "string" && (
@@ -34,7 +34,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                     required={input.required}
                     pattern={constraints?.regex}
                     onChange={e => onChange(input.name, e.target.value)}
-                    className="border rounded px-2 py-1"
+                    className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-700 dark:text-gray-100"
                 />
             )}
             
@@ -48,7 +48,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                     max={constraints?.max}
                     step="any"
                     onChange={e => onChange(input.name, e.target.value)}
-                    className="border rounded px-2 py-1"
+                    className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-700 dark:text-gray-100"
                 />
             )}
             
@@ -58,7 +58,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                     value={value}
                     required={input.required}
                     onChange={e => onChange(input.name, e.target.value)}
-                    className="border rounded px-2 py-1"
+                    className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-700 dark:text-gray-100"
                 >
                     <option value="">Select...</option>
                     {typeof options[0] === "string"
@@ -78,7 +78,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                     name={input.name}
                     checked={!!value}
                     onChange={e => onChange(input.name, e.target.checked)}
-                    className="h-4 w-4"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-slate-600 dark:bg-slate-700"
                 />
             )}
             
@@ -90,7 +90,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                     rows={constraints?.rows || 4}
                     placeholder={constraints?.placeholder}
                     onChange={e => onChange(input.name, e.target.value)}
-                    className="border rounded px-2 py-1 resize-vertical"
+                    className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 resize-vertical bg-white dark:bg-slate-700 dark:text-gray-100"
                 />
             )}
             
@@ -132,14 +132,14 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
                                 console.error('Error opening file dialog:', error);
                             }
                         }}
-                        className="border rounded px-2 py-1 w-full text-left bg-white hover:bg-gray-50"
+                        className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 w-full text-left bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 dark:text-gray-100"
                     >
                         {value ? 'Change file...' : 'Select file...'}
                     </button>
                     
                     {/* Display selected file names */}
                     {value && (
-                        <div className="mt-1 text-sm text-gray-600">
+                        <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                             {Array.isArray(value) ? (
                                 <div>
                                     Selected files: <strong>{value.map((file: any) => file.name).join(', ')}</strong>
@@ -153,7 +153,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
             )}
             
             {input.description && (
-                <span className="text-xs text-gray-500 mt-1">{input.description}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{input.description}</span>
             )}
         </div>
     );

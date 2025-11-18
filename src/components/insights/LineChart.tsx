@@ -41,7 +41,7 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
     // Check if data exists
     if (!data) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: No data provided for line chart
             </div>
         );
@@ -50,7 +50,7 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
     // Check if lines exist
     if (!data.lines || !Array.isArray(data.lines)) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: Missing or invalid 'lines' array
             </div>
         );
@@ -59,7 +59,7 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
     // Check if lines is empty
     if (data.lines.length === 0) {
         return (
-            <div className="my-4 p-4 text-center text-yellow-600 bg-yellow-50 border border-yellow-200 rounded">
+            <div className="my-4 p-4 text-center text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded">
                 ⚠️ Warning: No lines provided
             </div>
         );
@@ -77,10 +77,10 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
     if (validLines.length === 0) {
         const invalidLineCount = data.lines.length;
         return (
-            <div className="my-4 p-4 text-center text-orange-600 bg-orange-50 border border-orange-200 rounded">
+            <div className="my-4 p-4 text-center text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded">
                 ⚠️ Warning: Found {invalidLineCount} line(s) but none contain valid data points
                 <br />
-                <small className="text-gray-600">Each line needs an array of points with x,y coordinates</small>
+                <small className="text-gray-600 dark:text-gray-400">Each line needs an array of points with x,y coordinates</small>
             </div>
         );
     }
@@ -106,12 +106,20 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
         })),
     };
 
+    // Detect if we're in dark mode
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const textColor = isDarkMode ? '#e2e8f0' : '#374151';
+    const gridColor = isDarkMode ? '#475569' : '#e5e7eb';
+
     const options = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
             legend: {
                 position: 'top' as const,
+                labels: {
+                    color: textColor,
+                },
             },
         },
         scales: {
@@ -120,6 +128,13 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
                 title: {
                     display: true,
                     text: data.axis?.x?.label || "X Axis",
+                    color: textColor,
+                },
+                ticks: {
+                    color: textColor,
+                },
+                grid: {
+                    color: gridColor,
                 },
             },
             y: {
@@ -127,6 +142,13 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
                 title: {
                     display: true,
                     text: data.axis?.y?.label || "Y Axis",
+                    color: textColor,
+                },
+                ticks: {
+                    color: textColor,
+                },
+                grid: {
+                    color: gridColor,
                 },
             },
         },
@@ -136,11 +158,11 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
         <div className="w-full flex justify-center">
             {/* Show axis warning if missing */}
             {(!data.axis || !data.axis.x || !data.axis.y) && (
-                <div className="mb-2 p-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded">
+                <div className="mb-2 p-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded">
                     ℹ️ Info: Using default axis labels (axis configuration missing)
                 </div>
             )}
-            <div className="w-full max-w-2xl h-96 border border-gray-300 rounded-lg p-4 bg-white">
+            <div className="w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800">
                 <Line data={chartData} options={options} />
             </div>
         </div>
@@ -149,5 +171,5 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
 
 // Icon
 export const LineChartIcon: React.FC = () => (
-    <ChartLine className="inline-block w-4 h-4 mr-1 text-gray-400" />
+    <ChartLine className="inline-block w-4 h-4 mr-1 text-gray-400 dark:text-gray-500" />
 );

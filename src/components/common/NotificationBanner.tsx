@@ -32,45 +32,45 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return <CheckCircle size={20} className="text-green-600" />;
+        return <CheckCircle size={20} className="text-green-600 dark:text-green-400" />;
       case 'error':
-        return <AlertCircle size={20} className="text-red-600" />;
+        return <AlertCircle size={20} className="text-red-600 dark:text-red-400" />;
       case 'warning':
-        return <AlertTriangle size={20} className="text-yellow-600" />;
+        return <AlertTriangle size={20} className="text-yellow-600 dark:text-yellow-400" />;
       case 'info':
-        return <Info size={20} className="text-blue-600" />;
+        return <Info size={20} className="text-blue-600 dark:text-blue-400" />;
       default:
-        return <Info size={20} className="text-blue-600" />;
+        return <Info size={20} className="text-blue-600 dark:text-blue-400" />;
     }
   };
 
   const getBackgroundColor = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700';
       case 'error':
-        return 'bg-red-50 border-red-200';
+        return 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700';
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
+        return 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700';
       case 'info':
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700';
       default:
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700';
     }
   };
 
   const getTextColor = () => {
     switch (type) {
       case 'success':
-        return 'text-green-800';
+        return 'text-green-800 dark:text-green-200';
       case 'error':
-        return 'text-red-800';
+        return 'text-red-800 dark:text-red-200';
       case 'warning':
-        return 'text-yellow-800';
+        return 'text-yellow-800 dark:text-yellow-200';
       case 'info':
-        return 'text-blue-800';
+        return 'text-blue-800 dark:text-blue-200';
       default:
-        return 'text-blue-800';
+        return 'text-blue-800 dark:text-blue-200';
     }
   };
 

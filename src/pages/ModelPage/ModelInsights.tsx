@@ -47,10 +47,10 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
   // Build Table of Content (ToC) from all items in all top-level sections
   const tocSections = getAllItemsForToc(insights.content);
   return (
-    <div className="flex">
+  <div className="flex">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 sticky top-0 h-screen overflow-y-auto bg-gray-50 border-r border-gray-200 p-4">
-        <h2 className="text-lg font-bold mb-4">Table of Contents</h2>
+      <aside className="w-64 flex-shrink-0 sticky top-0 h-screen overflow-y-auto bg-gray-50 dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 p-4">
+        <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">Table of Contents</h2>
         <ul>
           {tocSections.map((sec) => {
             const IconComponent = componentRegistry[sec.type]?.icon;
@@ -67,7 +67,7 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
                       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                   }}
-                  className="flex items-center text-blue-700 text-sm hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
+                  className="flex items-center text-blue-700 dark:text-blue-400 text-sm hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
                 >
                   {IconComponent && <IconComponent />}
                   {sec.title}
@@ -78,7 +78,7 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
         </ul>
       </aside>
       {/* Main Content */}
-      <main className="flex-1 p-8 max-w-7xl mx-auto">
+      <main className="flex-1 p-8 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
         <h2 className="text-2xl font-bold mb-6">
             Findings
           {/* Model Insights: {insights.model_id} (v{insights.version}) */}

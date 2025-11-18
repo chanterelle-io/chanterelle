@@ -35,7 +35,7 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
     // Check if data exists
     if (!data) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: No data provided for bar chart
             </div>
         );
@@ -44,7 +44,7 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
     // Check if bars exist
     if (!data.bars || !Array.isArray(data.bars)) {
         return (
-            <div className="my-4 p-4 text-center text-red-500 bg-red-50 border border-red-200 rounded">
+            <div className="my-4 p-4 text-center text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded">
                 ❌ Error: Missing or invalid 'bars' array
             </div>
         );
@@ -95,6 +95,11 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
         ],
     };
 
+    // Detect if we're in dark mode
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const textColor = isDarkMode ? '#e2e8f0' : '#374151';
+    const gridColor = isDarkMode ? '#475569' : '#e5e7eb';
+
     const options = {
         responsive: true,
         maintainAspectRatio: false,
@@ -102,6 +107,9 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
         plugins: {
             legend: {
                 position: 'top' as const,
+                labels: {
+                    color: textColor,
+                },
             },
         },
         scales: {
@@ -112,8 +120,15 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
                     text: isHorizontal 
                         ? (data.axis?.x?.label || "Values")
                         : (data.axis?.x?.label || "Categories"),
+                    color: textColor,
                 },
-                ticks: isHorizontal ? {} : { autoSkip: false },
+                ticks: { 
+                    ...(isHorizontal ? {} : { autoSkip: false }),
+                    color: textColor,
+                },
+                grid: {
+                    color: gridColor,
+                },
             },
             y: {
                 display: true,
@@ -122,8 +137,15 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
                     text: isHorizontal 
                         ? (data.axis?.y?.label || "Categories")
                         : (data.axis?.y?.label || "Values"),
+                    color: textColor,
                 },
-                ticks: isHorizontal ? { autoSkip: false } : {},
+                ticks: {
+                    color: textColor,
+                    ...(isHorizontal ? {} : { autoSkip: false }),
+                },
+                grid: {
+                    color: gridColor,
+                },
             },
         },
     };
@@ -132,11 +154,11 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
         <div className="w-full flex flex-col items-center">
             {/* Show axis warning if missing */}
             {(!data.axis || !data.axis.x || !data.axis.y) && (
-                <div className="mb-2 p-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded">
+                <div className="mb-2 p-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded">
                     ℹ️ Info: Using default axis labels (axis configuration missing)
                 </div>
             )}
-            <div className="w-full max-w-2xl h-96 border border-gray-300 rounded-lg p-4 bg-white">
+            <div className="w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800">
                 <Bar data={chartData} options={options} />
             </div>
         </div>
@@ -145,5 +167,5 @@ export const BarChartComponent: React.FC<BarChartItem> = ({ data }) => {
 
 // Icon
 export const BarChartIcon: React.FC = () => (
-    <ChartColumn className="inline-block w-4 h-4 mr-1 text-gray-400" />
+    <ChartColumn className="inline-block w-4 h-4 mr-1 text-gray-400 dark:text-gray-500" />
 );
