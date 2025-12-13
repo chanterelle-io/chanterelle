@@ -147,7 +147,7 @@ const ModelPage: React.FC = () => {
             {modelData && (
                 <>
                     {/* Tabs */}
-                    <div className="mb-6 flex border-b border-gray-200 dark:border-slate-700">
+                    <div className="mb-4 flex border-b border-gray-200 dark:border-slate-700">
                         <button
                 className={`px-4 py-2 -mb-px border-b-2 transition-colors ${
                                 activeTab === "detail"

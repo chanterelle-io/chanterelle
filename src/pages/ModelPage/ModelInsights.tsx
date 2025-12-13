@@ -49,7 +49,7 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
   return (
   <div className="flex">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 sticky top-0 h-screen overflow-y-auto bg-gray-50 dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 p-4">
+      <aside className="w-64 flex-shrink-0 sticky top-8 self-start overflow-hidden bg-gray-50 dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 p-4">
         <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">Table of Contents</h2>
         <ul>
           {tocSections.map((sec) => {
@@ -78,7 +78,7 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
         </ul>
       </aside>
       {/* Main Content */}
-      <main className="flex-1 p-8 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
+      <main className="flex-1 p-4 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
         <h2 className="text-2xl font-bold mb-6">
             Findings
           {/* Model Insights: {insights.model_id} (v{insights.version}) */}
