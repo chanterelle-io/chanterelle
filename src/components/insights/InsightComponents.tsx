@@ -1,3 +1,5 @@
+// Deprecated!
+
 import React, { useState } from "react";
 import {
   Chart as ChartJS,

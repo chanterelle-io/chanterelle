@@ -135,9 +135,9 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
     // Helper function to render bullet points
     const renderBulletPoints = (bulletPoints: BulletPoint[], level: number = 0) => {
         return (
-            <ul className={`${level === 0 ? 'list-disc' : 'list-circle'} ml-6 space-y-1`}>
+            <ul className={`${level === 0 ? 'list-disc' : 'list-circle'} ml-6 space-y-1 dark:text-gray-200`}>
                 {bulletPoints.map((bullet, index) => (
-                    <li key={index} className="leading-relaxed">
+                    <li key={index} className="leading-relaxed dark:text-gray-200">
                         <span
                             className={`
                                 ${getFontSizeClass(bullet.style?.fontSize)}
@@ -160,7 +160,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
 
     // Main container classes
     const containerClasses = `
-        w-full p-4 bg-white border border-gray-200 rounded-lg
+        w-full p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100
         ${getFontSizeClass(data.style?.fontSize)}
         ${getFontWeightClass(data.style?.fontWeight)}
         ${getAlignmentClass(data.style?.alignment)}
@@ -196,7 +196,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
                                     {contentItem.bulletPoints && contentItem.bulletPoints.length > 0 ? (
                                         renderBulletPoints(contentItem.bulletPoints)
                                     ) : (
-                                        <div className="text-orange-600 bg-orange-50 border border-orange-200 rounded p-2 text-sm">
+                                        <div className="text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded p-2 text-sm">
                                             ⚠️ Warning: Bullet list type specified but no bullet points provided
                                         </div>
                                     )}
@@ -227,5 +227,5 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
 
 // Icon
 export const TextIcon: React.FC = () => (
-    <Text className="inline-block w-4 h-4 mr-1 text-gray-400" />
+    <Text className="inline-block w-4 h-4 mr-1 text-gray-400 dark:text-gray-500" />
 );
