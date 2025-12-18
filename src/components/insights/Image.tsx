@@ -9,6 +9,7 @@ export interface ImageItem extends BaseItem {
     // type: 'image';
     file_path: string;
     caption?: string;
+    size?: 'small' | 'medium' | 'big';
 }
 
 // Helper function to get the correct image source with cache busting
@@ -89,6 +90,13 @@ const getImageSrc = (filePath: string, projectDir: string) => {
 export const ImageComponent: React.FC<ImageItem> = (item) => {
     const { projectPath } = useProjectContext();
     const [imageKey, setImageKey] = useState(Date.now());
+    const { size = 'medium' } = item;
+
+    const sizeClasses = {
+        small: "max-h-[40vh] max-w-[40vw]",
+        medium: "max-h-[70vh] max-w-[60vw]",
+        big: "max-h-[90vh] max-w-[90vw]"
+    };
     
     // // Function to refresh the image by updating the key
     // const refreshImage = () => {
@@ -111,7 +119,7 @@ export const ImageComponent: React.FC<ImageItem> = (item) => {
                     key={imageKey}
                     src={getImageSrc(item.file_path, projectPath ?? "") + `&key=${imageKey}`}
                     alt={item.caption || item.file_path}
-                    className="max-h-[65vh] w-full max-w-[80vh] object-contain"
+                    className={`${sizeClasses[size]} w-full object-contain`}
                     onLoad={() => {
                         console.log('Image loaded successfully');
                     }}
