@@ -89,7 +89,7 @@ const getImageSrc = (filePath: string, projectDir: string) => {
 // Image Component
 export const ImageComponent: React.FC<ImageItem> = (item) => {
     const { projectPath } = useProjectContext();
-    const [imageKey, setImageKey] = useState(Date.now());
+    const [imageKey, ] = useState(Date.now());
     const { size = 'medium' } = item;
 
     const sizeClasses = {
