@@ -7,7 +7,7 @@
 # Building Chanterelle
 
 Windows:
-`pnpm build` creates the production build in the `src-tauri/target/release/bundle` folder.
+`pnpm tauri build` creates the production build in the `src-tauri/target/release/bundle` folder.
 
 # Publishing Chanterelle (github releases)
 
