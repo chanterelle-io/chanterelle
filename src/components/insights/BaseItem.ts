@@ -1,6 +1,6 @@
 export interface BaseItem {
     type: string;
-    id: string;
+    id?: string;
     title: string;
     description?: string;
     comment?: string;

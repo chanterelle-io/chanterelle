@@ -6,33 +6,23 @@ import { SectionType, SectionComponent } from "../../components/insights";
 import { Bot } from "lucide-react";
 import { useParams } from "react-router";
 import { ModelFormFieldset } from "../../components/form";
+import { getInputDefinition } from "../../components/form/inputs";
+import { resolveEffectiveConstraints } from "../../utils/formUtils";
 
 
 interface ModelFormProps {
     model: ModelMeta;
 }
 
-const getDefaultValue = (input: ModelInput) => {
-    if (input.default !== undefined) return input.default;
-    if (input.type === "boolean") return false;
-    if (input.type === "float" || input.type === "int") return "";
-    if (input.type === "textarea") return "";
-    if (input.type === "file") return null;
-    return "";
-};
-
-// Helper to merge constraints (base + override)
-const mergeConstraints = (base?: ModelInputConstraint, override?: ModelInputConstraint): ModelInputConstraint => {
-    return { ...(base || {}), ...(override || {}) };
-};
-
 const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     const { modelId } = useParams<{ modelId: string }>(); // actually it's project name
     const [values, setValues] = useState<ModelInputs>(
-        Object.fromEntries(model.inputs.map(input => [input.name, getDefaultValue(input)]))
+        Object.fromEntries(model.inputs.map(input => {
+            const def = getInputDefinition(input.type);
+            return [input.name, def ? def.getDefaultValue(input) : ""];
+        }))
     );
     const [presetSelections, setPresetSelections] = useState<{ [presetName: string]: string }>({});
-    // const [selectedForSensitivity, setSelectedForSensitivity] = useState<string | null>(null);
     const [result, setResult] = useState<SectionType[] | null>(null);
     const [predictLoading, setPredictLoading] = useState(false);
     // // Helper: get ModelInput by name
@@ -73,30 +63,6 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
         p => !groupedPresetNames.has(p.input_preset)
     );
 
-    // Get effective constraints for an input (handles depends_on)
-    const getEffectiveConstraints = (input: ModelInput): ModelInputConstraint | undefined => {
-        if (input.depends_on) {
-            const parentValue = values[input.depends_on.input_name];
-            const mapping = input.depends_on.mapping?.[parentValue];
-            if (mapping && mapping.constraints) {
-                return mergeConstraints(input.constraints, mapping.constraints);
-            }
-        }
-        return input.constraints;
-    };
-
-    // Get effective constraints for a preset (handles depends_on)
-    const getEffectivePresetConstraints = (preset: ModelInputPreset): ModelInputConstraint | undefined => {
-        if (preset.depends_on) {
-            const parentValue = values[preset.depends_on.field];
-            const mapping = preset.depends_on.mapping?.[parentValue];
-            if (mapping && mapping.constraints) {
-                return mapping.constraints;
-            }
-        }
-        return undefined;
-    };
-
     // Handle input change
     const handleChange = (name: string, value: any) => {
         setValues(prev => ({ ...prev, [name]: value }));
@@ -114,29 +80,18 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
         }
     };
 
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setPredictLoading(true);
         // Validate all required inputs
         const errors: string[] = [];
         model.inputs.forEach(input => {
-            // if (input.required && !values[input.name]) {
-            //     errors.push(`Field "${input.label || input.name}" is required.`);
-            // }
-            if (input.required) {
-                if (input.type === "file") {
-                    // For file inputs, check if a file is selected
-                    if (!values[input.name] || 
-                        (Array.isArray(values[input.name]) && values[input.name].length === 0)) {
-                        errors.push(`File "${input.label || input.name}" is required.`);
-                    }
-                } else if (!values[input.name] && values[input.name] !== 0 && values[input.name] !== false) {
-                    errors.push(`Field "${input.label || input.name}" is required.`);
-                }
-            }
-            const constraints = getEffectiveConstraints(input);
-            if (constraints?.regex && values[input.name] && !new RegExp(constraints.regex).test(values[input.name])) {
-                errors.push(`Field "${input.label || input.name}" does not match the required pattern.`);
+            const def = getInputDefinition(input.type);
+            const constraints = resolveEffectiveConstraints(input, values);
+            const error = def?.validate ? def.validate(values[input.name], input, constraints) : null;
+            if (error) {
+                errors.push(error);
             }
         });
         if (errors.length > 0) {
@@ -145,31 +100,12 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
             return;
         }
 
-        // Convert int/float values to numbers before submitting
+        // Process values before submitting (e.g. string -> number)
         const parsedValues = { ...values };
         model.inputs.forEach(input => {
-            if ((input.type === "int" || input.type === "float") && values[input.name] !== "") {
-                const num = input.type === "int"
-                    ? parseInt(values[input.name], 10)
-                    : parseFloat(values[input.name]);
-                parsedValues[input.name] = isNaN(num) ? values[input.name] : num;
-            }
-            // Handle file inputs
-            if (input.type === "file" && values[input.name]) {
-                const fileValue = values[input.name];
-                if (Array.isArray(fileValue)) {
-                    // Multiple files - each has { path, name }
-                    parsedValues[input.name] = fileValue.map((file: any) => ({
-                        name: file.name,
-                        path: file.path
-                    }));
-                } else if (fileValue && typeof fileValue === 'object') {
-                    // Single file - has { path, name }
-                    parsedValues[input.name] = {
-                        name: fileValue.name,
-                        path: fileValue.path
-                    };
-                }
+            const def = getInputDefinition(input.type);
+            if (def?.processValue) {
+                parsedValues[input.name] = def.processValue(values[input.name], input);
             }
         });
 
@@ -214,8 +150,6 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                         group={group}
                         values={values}
                         presetSelections={presetSelections}
-                        getEffectiveConstraints={getEffectiveConstraints}
-                        getEffectivePresetConstraints={getEffectivePresetConstraints}
                         handleChange={handleChange}
                         handlePresetChange={handlePresetChange}
                     />
@@ -232,8 +166,6 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                         }}
                         values={values}
                         presetSelections={presetSelections}
-                        getEffectiveConstraints={getEffectiveConstraints}
-                        getEffectivePresetConstraints={getEffectivePresetConstraints}
                         handleChange={handleChange}
                         handlePresetChange={handlePresetChange}
                     />
@@ -250,8 +182,6 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                         }}
                         values={values}
                         presetSelections={presetSelections}
-                        getEffectiveConstraints={getEffectiveConstraints}
-                        getEffectivePresetConstraints={getEffectivePresetConstraints}
                         handleChange={handleChange}
                         handlePresetChange={handlePresetChange}
                     />

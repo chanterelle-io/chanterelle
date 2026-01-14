@@ -16,6 +16,7 @@ export interface ImageItem extends BaseItem {
 const getImageSrc = (filePath: string, projectDir: string) => {
   try {
     console.log('Processing image URL:', filePath);
+    const isWindows = navigator.userAgent.includes('Windows');
 
     // If it's already a valid HTTP/HTTPS URL, use it as-is
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
@@ -31,13 +32,20 @@ const getImageSrc = (filePath: string, projectDir: string) => {
       let decodedPath = decodeURIComponent(filePath);
       console.log('Decoded path:', decodedPath);
       
-      // Remove the file:// prefix and get just the path
-      let extractedPath = decodedPath.replace('file:///', '').replace('file://', '');
-      console.log('Extracted file path:', extractedPath);
+      // Remove the file:// prefix
+      let extractedPath = decodedPath.replace(/^file:\/\//, '');
       
-      // Convert forward slashes back to backslashes for Windows
-      extractedPath = extractedPath.replace(/\//g, '\\');
-      console.log('Windows file path:', extractedPath);
+      // Handle Windows paths like /C:/Users/... -> C:\Users\...
+      if (isWindows) {
+        if (extractedPath.startsWith('/') && /^\/[A-Za-z]:/.test(extractedPath)) {
+            extractedPath = extractedPath.substring(1);
+        }
+        // Convert forward slashes back to backslashes for Windows
+        extractedPath = extractedPath.replace(/\//g, '\\');
+        console.log('Windows file path:', extractedPath);
+      }
+      
+      console.log('Extracted file path:', extractedPath);
       
       // Convert it using Tauri's convertFileSrc
       const converted = convertFileSrc(extractedPath);
@@ -49,7 +57,7 @@ const getImageSrc = (filePath: string, projectDir: string) => {
     }
     
     // If it's a Windows absolute path (C:\...), convert it directly
-    if (filePath.match(/^[A-Za-z]:\\/)) {
+    if (isWindows && filePath.match(/^[A-Za-z]:\\/)) {
       console.log('Converting Windows path directly');
       const converted = convertFileSrc(filePath);
       console.log('Converted to:', converted);
@@ -63,11 +71,22 @@ const getImageSrc = (filePath: string, projectDir: string) => {
     console.log('Handling relative path with projectDir:', projectDir);
     let fullPath: string;
     
-    // Check if it's a relative path (doesn't start with drive letter or protocol)
-    if (!filePath.match(/^[A-Za-z]:/) && !filePath.startsWith('/') && !filePath.includes('://')) {
+    // Check if it's a relative path
+    const isAbsolute = isWindows 
+        ? /^[A-Za-z]:/.test(filePath) || filePath.startsWith('\\\\')
+        : filePath.startsWith('/');
+
+    if (!isAbsolute && !filePath.includes('://')) {
       // It's a relative path, combine with projectDir
-      const separator = projectDir.endsWith('\\') || projectDir.endsWith('/') ? '' : '\\';
-      fullPath = projectDir + separator + filePath.replace(/\//g, '\\');
+      const separator = isWindows ? '\\' : '/';
+      const needsSeparator = !projectDir.endsWith(separator);
+      
+      let normalizedFilePath = filePath;
+      if (isWindows) {
+          normalizedFilePath = filePath.replace(/\//g, '\\');
+      }
+      
+      fullPath = projectDir + (needsSeparator ? separator : '') + normalizedFilePath;
       console.log('Combined relative path:', fullPath);
     } else {
       fullPath = filePath;

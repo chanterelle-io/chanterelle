@@ -1,9 +1,27 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import chanterelleLogo from '../../assets/chanterelle.png';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useEffect, useState } from 'react';
 
 const TitleBar = () => {
   const { theme, toggleTheme } = useTheme();
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    if (navigator.userAgent.includes('Mac')) {
+      setIsMac(true);
+    }
+  }, []);
+
+  if (isMac) {
+    return (
+      <div 
+        className="fixed top-0 left-0 right-0 z-50 h-8 select-none" 
+        data-tauri-drag-region
+      >
+      </div>
+    );
+  }
 
   const handleMinimize = async () => {
     try {

@@ -12,6 +12,10 @@ import { ErrorMessageComponent, ErrorMessageIcon } from "./ErrorMessage";
 import type { ErrorMessageItem } from "./ErrorMessage";
 import { ScatterPlotComponent, ScatterPlotIcon, ScatterPlotItem } from "./ScatterPlot";
 import { TextComponent, TextIcon, TextItem } from "./Text";
+import { PlotlyComponent, PlotlyIcon } from "./PlotlyChart";
+import type { PlotlyItem } from "./PlotlyChart";
+import { HtmlComponent, HtmlIcon } from "./Html";
+import type { HtmlItem } from "./Html";
 
 // Component registry type - components must accept props that extend BaseItem
 export type ComponentRegistryItem<T extends BaseItem = BaseItem> = {
@@ -52,6 +56,14 @@ export const componentRegistry: ComponentRegistry = {
         Component: TextComponent,
         icon: TextIcon,
     },
+    plotly: {
+        Component: PlotlyComponent,
+        icon: PlotlyIcon,
+    },
+    html: {
+        Component: HtmlComponent,
+        icon: HtmlIcon,
+    },
 };
 
 export type ItemType = TableItem
@@ -60,4 +72,6 @@ export type ItemType = TableItem
     | LineChartItem
     | BarChartItem
     | ErrorMessageItem
-    | ScatterPlotItem;
+    | ScatterPlotItem
+    | PlotlyItem
+    | HtmlItem;

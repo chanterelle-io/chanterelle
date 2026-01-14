@@ -3,7 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 // import { signInWithRedirect, getCurrentUser } from "aws-amplify/auth";
 // import { useState, useEffect } from "react";
 
-// Header Component
+// Header Component (NOT used)
 const Header = () => {
     const { theme, toggleTheme } = useTheme();
     // const [user, setUser] = useState<any>(null);

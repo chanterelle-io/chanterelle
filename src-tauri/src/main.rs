@@ -119,18 +119,21 @@ async fn set_projects_directory(
 }
 
 #[tauri::command]
-fn open_directory_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn open_directory_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel();
 
-    let result = app
-        .dialog()
+    app.dialog()
         .file()
         .set_title("Select Projects Directory")
-        .blocking_pick_folder();
+        .pick_folder(move |path| {
+            let _ = tx.send(path);
+        });
 
-    match result {
-        Some(path) => Ok(Some(path.to_string())),
-        None => Ok(None),
+    match rx.await {
+        Ok(Some(path)) => Ok(Some(path.to_string())),
+        Ok(None) => Ok(None),
+        Err(_) => Err("Failed to pick folder".to_string()),
     }
 }
 
@@ -146,6 +149,11 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_decorations(false);
+            }
+
             // Load settings on startup
             let app_handle = app.handle();
             let state = app_handle.state::<AppState>();

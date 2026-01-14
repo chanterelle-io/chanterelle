@@ -13,7 +13,7 @@ export interface TextData {
 }
 
 export interface TextContent {
-    id: string;
+    id?: string;
     type: 'paragraph' | 'bullet_list';
     text: string;
     style?: {
@@ -177,10 +177,11 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
             
             <div className={containerClasses}>
                 <div className="space-y-4">
-                    {validContent.map((contentItem) => {
+                    {validContent.map((contentItem, index) => {
+                        const key = contentItem.id || `text-content-${index}`;
                         if (contentItem.type === 'bullet_list') {
                             return (
-                                <div key={contentItem.id} className="space-y-2">
+                                <div key={key} className="space-y-2">
                                     {contentItem.text && (
                                         <p
                                             className={`
@@ -206,7 +207,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
                             // Regular paragraph
                             return (
                                 <p
-                                    key={contentItem.id}
+                                    key={key}
                                     className={`
                                         leading-relaxed
                                         ${getFontSizeClass(contentItem.style?.fontSize)}
