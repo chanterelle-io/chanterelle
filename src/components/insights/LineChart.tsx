@@ -12,7 +12,7 @@ export interface LineChartData {
     };
 }
 export interface LineChartLine {
-    id: string;
+    id?: string;
     points: LineChartPoint[];
     style?: {
         color?: string;
@@ -90,8 +90,8 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
         labels: validLines[0]?.points
             .filter(p => p && typeof p.x === 'number' && typeof p.y === 'number')
             .map((p) => p.x),
-        datasets: validLines.map((line) => ({
-            label: line.id || 'Unnamed Line',
+        datasets: validLines.map((line, index) => ({
+            label: line.id || `Line ${index + 1}`,
             data: line.points
                 .filter(p => p && typeof p.x === 'number' && typeof p.y === 'number')
                 .map((p) => p.y),

@@ -3,6 +3,7 @@ import { ModelInput, ModelInputPreset, ModelInputGrouping, ModelInputConstraint 
 import { ModelInputs } from "../../types/ModelInputs";
 import ModelInputField from "./ModelInputField";
 import ModelPresetField from "./ModelPresetField";
+import { resolveEffectiveConstraints, resolveEffectivePresetConstraints } from "../../utils/formUtils";
 
 interface ModelFormFieldsetProps {
     group: ModelInputGrouping & {
@@ -10,8 +11,6 @@ interface ModelFormFieldsetProps {
     };
     values: ModelInputs;
     presetSelections: { [presetName: string]: string };
-    getEffectiveConstraints: (input: ModelInput) => ModelInputConstraint | undefined;
-    getEffectivePresetConstraints: (preset: ModelInputPreset) => ModelInputConstraint | undefined;
     handleChange: (name: string, value: any) => void;
     handlePresetChange: (preset: ModelInputPreset, selectedName: string) => void;
 }
@@ -20,8 +19,6 @@ const ModelFormFieldset: React.FC<ModelFormFieldsetProps> = ({
     group,
     values,
     presetSelections,
-    getEffectiveConstraints,
-    getEffectivePresetConstraints,
     handleChange,
     handlePresetChange
 }) => {
@@ -37,7 +34,7 @@ const ModelFormFieldset: React.FC<ModelFormFieldsetProps> = ({
                             key={entry.item.name}
                             input={entry.item}
                             value={values[entry.item.name]}
-                            constraints={getEffectiveConstraints(entry.item)}
+                            constraints={resolveEffectiveConstraints(entry.item, values)}
                             onChange={handleChange}
                         />
                     ) : (
@@ -45,7 +42,7 @@ const ModelFormFieldset: React.FC<ModelFormFieldsetProps> = ({
                             key={entry.item.input_preset}
                             preset={entry.item}
                             selectedValue={presetSelections[entry.item.input_preset]}
-                            constraints={getEffectivePresetConstraints(entry.item)}
+                            constraints={resolveEffectivePresetConstraints(entry.item, values)}
                             onPresetChange={handlePresetChange}
                         />
                     )

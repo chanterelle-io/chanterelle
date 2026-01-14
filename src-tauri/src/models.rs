@@ -14,7 +14,7 @@ pub struct ModelDetails {
 }
 
 /// Recursively resolves $href references in JSON by replacing them with content from referenced files
-fn resolve_json_refs(value: &mut serde_json::Value, base_dir: &Path) -> Result<(), String> {
+pub fn resolve_json_refs(value: &mut serde_json::Value, base_dir: &Path) -> Result<(), String> {
     match value {
         serde_json::Value::Object(map) => {
             // Check if this object has a $href property

@@ -30,7 +30,7 @@ import type { ItemType } from "./componentRegistry";
 export interface SectionType {
     type: 'section';
     color?: 'white' | 'red' | 'green' | 'blue' | 'yellow' | 'purple' | 'orange'; // Optional: color for section header
-    id: string;
+    id?: string;
     title: string;
     description?: string;
     items?: SectionOrItemType[]; // Optional: array of items or subsections
@@ -85,7 +85,8 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
     level = 1,
     parentId = ""
 }) => {
-    const sectionId = parentId ? `${parentId}__${section.id}` : section.id;
+    const localId = section.id || (section.title ? section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'section');
+    const sectionId = parentId ? `${parentId}__${localId}` : localId;
     const headingClass =
         level === 1
             ? "text-xl font-bold mb-2 flex items-center"
@@ -184,8 +185,8 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
                     className={`grid gap-4`}
                     style={{ gridTemplateColumns: `repeat(${itemsPerRow}, 1fr)` }}
                 >
-                    {itemsToRender.map((item) => 
-                        renderSectionOrItem(item, level, sectionId)
+                    {itemsToRender.map((item, index) => 
+                        renderSectionOrItem(item, level, sectionId, index)
                     )}
                 </div>
             )}
@@ -198,14 +199,17 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
 };
 
 // Recursive item renderer
-export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId = ""): JSX.Element | null => {
-    const itemId = parentId && item.id ? `${parentId}__${item.id}` : item.id || parentId;
+export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId = "", index = 0): JSX.Element | null => {
+    if (!item) return null;
+    const localId = item.id || (item.title ? item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `item-${index}`);
+    const itemId = parentId ? `${parentId}__${localId}` : localId;
+
     if (item.type === "section") {
         // Type guard to ensure item is SectionType
         return (
             <SectionComponent
-                key={item.id}
-                section={item as SectionType}
+                key={localId}
+                section={{...item, id: localId} as SectionType}
                 level={level + 1}
                 parentId={parentId}
             />
@@ -217,7 +221,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         const DataComponent = componentRegistry[item.type]?.Component;
         
         return (
-            <div key={item.id} id={itemId} className="mb-2 p-2" data-toc>
+            <div key={localId} id={itemId} className="mb-2 p-2" data-toc>
                 <div className="mb-3">
                     <h4 className="text-lg font-semibold mb-1 flex items-center">
                         {IconComponent && <IconComponent />}

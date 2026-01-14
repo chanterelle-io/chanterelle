@@ -12,7 +12,7 @@ export interface ScatterPlotData {
     };
 }
 export interface ScatterPlotDataset {
-    id: string;
+    id?: string;
     points: ScatterPlotPoint[];
     style?: {
         color?: string;
@@ -86,8 +86,8 @@ export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data }) => {
     }
 
     const chartData = {
-        datasets: validDatasets.map((dataset) => ({
-            label: dataset.id || 'Unnamed Dataset',
+        datasets: validDatasets.map((dataset, index) => ({
+            label: dataset.id || `Dataset ${index + 1}`,
             data: dataset.points
                 .filter(p => p && typeof p.x === 'number' && typeof p.y === 'number')
                 .map((p) => ({ x: p.x, y: p.y })),

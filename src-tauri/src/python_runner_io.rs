@@ -98,7 +98,13 @@ pub async fn load_model(
     let python_environment = if metadata_path.exists() {
         let metadata_content = std::fs::read_to_string(&metadata_path)
             .map_err(|e| format!("Failed to read model_meta.json: {}", e))?;
-        let model_meta: ModelMeta = serde_json::from_str(&metadata_content)
+        
+        let mut metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
+            .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+            
+        crate::models::resolve_json_refs(&mut metadata_value, &model_dir)?;
+        
+        let model_meta: ModelMeta = serde_json::from_value(metadata_value)
             .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
         model_meta.python_environment
     } else {
