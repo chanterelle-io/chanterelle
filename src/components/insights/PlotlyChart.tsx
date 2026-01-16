@@ -26,6 +26,18 @@ type NormalizedPlotlyFigure = {
     config?: any;
 };
 
+const normalizePlotlyLayout = (layout: unknown): any => {
+    if (!layout || typeof layout !== 'object' || Array.isArray(layout)) return layout;
+    const normalized: any = { ...(layout as any) };
+
+    // Allow shorthand: { title: "My Title" }
+    if (typeof normalized.title === 'string') {
+        normalized.title = { text: normalized.title };
+    }
+
+    return normalized;
+};
+
 const unwrapJsonStrings = (value: unknown, maxDepth = 4): unknown => {
     let current: unknown = value;
 
@@ -270,7 +282,7 @@ export const PlotlyComponent: React.FC<PlotlyItem> = (item) => {
                 );
             }
         }
-    }, [item.file_path, projectPath]);
+    }, [item.file_path, projectPath, item.data, item.figure, item.figure_json]);
 
     if (error) {
         return <div className="text-red-500 p-4 border border-red-200 rounded">Error loading chart: {error}</div>;
@@ -284,9 +296,9 @@ export const PlotlyComponent: React.FC<PlotlyItem> = (item) => {
     const layout = {
         autosize: true, 
         margin: { t: 40, r: 20, l: 40, b: 40 },
-        ...(fetchedLayout || {}),
-        ...(inlineFigure.layout || {}),
-        ...item.layout
+        ...(normalizePlotlyLayout(fetchedLayout) || {}),
+        ...(normalizePlotlyLayout(inlineFigure.layout) || {}),
+        ...(normalizePlotlyLayout(item.layout) || {})
     };
 
     return (
@@ -296,7 +308,8 @@ export const PlotlyComponent: React.FC<PlotlyItem> = (item) => {
                 layout={layout}
                 config={{
                     responsive: true, 
-                    displayModeBar: true,
+                    // Only show the Plotly modebar when hovering, so it doesn't overlap long titles.
+                    displayModeBar: 'hover',
                     ...(inlineFigure.config || {}),
                     ...item.config
                 }}
