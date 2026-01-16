@@ -24,6 +24,8 @@ const ModelPage: React.FC = () => {
     const [warmStatus, setWarmStatus] = useState<'idle' | 'warming' | 'ready' | 'error'>('idle');
     const [warmError, setWarmError] = useState<string | null>(null);
 
+    const [isMac] = useState(() => navigator.userAgent.includes('Mac'));
+
     const loadModelData = () => {
         if (!modelId) return;
         setLoading(true);
@@ -91,7 +93,10 @@ const ModelPage: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-5 pt-3 sm:px-2 lg:px-4 transition-colors">
-            <div className="sticky top-0 z-10 bg-gray-50 dark:bg-slate-900/90 backdrop-blur mb-2 flex items-center justify-between">
+            <div 
+                className={`sticky ${isMac ? 'top-0 z-50' : 'top-8 z-30'} bg-gray-50 dark:bg-slate-900/90 backdrop-blur mb-2 flex items-center justify-between`}
+                data-tauri-drag-region={isMac ? "true" : undefined}
+            >
                 <button
                     onClick={() => navigate("/")}
                     className="flex items-center text-blue-600 hover:text-blue-400 dark:hover:text-blue-500 hover:cursor-pointer"
