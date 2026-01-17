@@ -221,7 +221,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         const DataComponent = componentRegistry[item.type]?.Component;
         
         return (
-            <div key={localId} id={itemId} className="mb-2 p-2" data-toc>
+            <div key={localId} id={itemId} className="mb-1 p-1" data-toc>
                 <div className="mb-3">
                     <h4 className="text-lg font-semibold mb-1 flex items-center">
                         {IconComponent && <IconComponent />}

@@ -19,6 +19,7 @@
   --color-bg: #0f172a;
   /* Tailwind slate-100 */
   --color-text: #f1f5f9;
+  color-scheme: dark;
 }
 
 body {

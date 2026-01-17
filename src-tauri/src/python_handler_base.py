@@ -231,6 +231,25 @@ class MLModelHandler:
             # Catch-all for any other errors (like JSON parsing)
             return format_detailed_error(e, "request handling")
 
+    def handle_feedback(self, feedback_data):
+        """Process feedback using feedback_fn."""
+        if not self.is_initialized:
+            # Maybe initialization is not strictly required if we just log, 
+            # but we pass self.model, so we should probably ensure it's there or pass None.
+            # For consistency, let's require initialization.
+            return {"error": "Model not initialized"}
+
+        if hasattr(self.handler_module, 'feedback_fn'):
+            try:
+                # feedback_fn(feedback_data, resources=...)
+                self._call_user_function_with_optional_resources('feedback_fn', feedback_data)
+                return {"status": "success", "message": "Feedback processed by handler"}
+            except Exception as e:
+                return format_detailed_error(e, "feedback processing (feedback_fn)")
+        else:
+            # It is not an error if the user didn't implement it
+            return {"status": "ignored", "message": "No feedback_fn implemented"}
+
     def run_communication_loop(self):
         """Run the main communication loop for stdin/stdout protocol."""
         # IO isolation is performed once at process start
@@ -252,14 +271,28 @@ class MLModelHandler:
             if not line:
                 continue
             
+            try:
+                request_data = json.loads(line)
+            except Exception:
+                # Fallback for non-JSON strings (passed as is to handle_request)
+                result = self.handle_request(line)
+                _send_protocol_json(result)
+                continue
+            
             # Handle health check ping
-            if line == '{"ping": true}':
+            if isinstance(request_data, dict) and request_data.get("ping") is True:
                 result = self.health_check()
+                _send_protocol_json(result)
+                continue
+
+            # Handle feedback command
+            if isinstance(request_data, dict) and request_data.get("command") == "feedback":
+                result = self.handle_feedback(request_data.get("data"))
                 _send_protocol_json(result)
                 continue
             
             # Process regular requests
-            result = self.handle_request(line)
+            result = self.handle_request(request_data)
             _send_protocol_json(result)
 
 

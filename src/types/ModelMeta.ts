@@ -110,6 +110,7 @@ export interface ModelMeta {
     signed_url_base?: string;
     signed_url_params?: string;
     python_environment?: PythonEnvironment;
+    allow_feedback?: boolean;
 }
 
 export interface ModelMetaShort {

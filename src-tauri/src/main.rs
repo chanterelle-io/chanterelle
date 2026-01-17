@@ -138,6 +138,142 @@ async fn open_directory_dialog(app: tauri::AppHandle) -> Result<Option<String>, 
 }
 
 #[tauri::command]
+async fn submit_feedback(
+    project_name: String,
+    feedback: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+) -> Result<u64, String> {
+    let projects_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.projects_directory.clone()
+    };
+    
+    // Save to file
+    let feedback_file = std::path::Path::new(&projects_dir)
+        .join(&project_name)
+        .join("feedback.jsonl");
+
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+        
+    let entry = serde_json::json!({
+        "timestamp": timestamp,
+        "feedback": feedback
+    });
+    
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(feedback_file)
+        .map_err(|e| format!("Failed to open feedback file: {}", e))?;
+        
+    writeln!(file, "{}", serde_json::to_string(&entry).unwrap())
+        .map_err(|e| format!("Failed to write feedback: {}", e))?;
+
+    // Send to python if running
+    python_runner_io::submit_feedback(feedback, state).await.map(|_| timestamp).map_err(|e| e)
+}
+
+#[tauri::command]
+async fn delete_feedback(
+    project_name: String,
+    timestamp: u64,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let projects_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.projects_directory.clone()
+    };
+    
+    let feedback_file = std::path::Path::new(&projects_dir)
+        .join(&project_name)
+        .join("feedback.jsonl");
+        
+    if !feedback_file.exists() {
+        return Ok(());
+    }
+
+    // Read all lines
+    let file = std::fs::File::open(&feedback_file)
+        .map_err(|e| format!("Failed to open feedback file: {}", e))?;
+    let reader = std::io::BufReader::new(file);
+    
+    use std::io::BufRead;
+    let mut lines = Vec::new(); // Store valid lines
+    
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
+        if line.trim().is_empty() { continue; }
+        
+        match serde_json::from_str::<serde_json::Value>(&line) {
+            Ok(entry) => {
+                // If timestamp doesn't match, keep it
+                let entry_ts = entry["timestamp"].as_u64().unwrap_or(0);
+                if entry_ts != timestamp {
+                    lines.push(line);
+                }
+            },
+            Err(_) => lines.push(line), // Keep malformed lines to be safe? Or maybe drop them. Let's keep.
+        }
+    }
+
+    // Write back
+    use std::io::Write;
+    let mut file = std::fs::File::create(&feedback_file)
+        .map_err(|e| format!("Failed to open feedback file for writing: {}", e))?;
+        
+    for line in lines {
+        writeln!(file, "{}", line)
+            .map_err(|e| format!("Failed to write feedback: {}", e))?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_feedback_history(
+    project_name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let projects_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.projects_directory.clone()
+    };
+    
+    let feedback_file = std::path::Path::new(&projects_dir)
+        .join(&project_name)
+        .join("feedback.jsonl");
+        
+    if !feedback_file.exists() {
+        return Ok(Vec::new());
+    }
+
+    let file = std::fs::File::open(feedback_file)
+        .map_err(|e| format!("Failed to open feedback file: {}", e))?;
+    let reader = std::io::BufReader::new(file);
+    
+    use std::io::BufRead;
+    let mut history = Vec::new();
+    
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
+        if line.trim().is_empty() { continue; }
+        
+        match serde_json::from_str::<serde_json::Value>(&line) {
+            Ok(entry) => history.push(entry),
+            Err(e) => println!("Failed to parse feedback line: {}", e),
+        }
+    }
+    
+    // Reverse to show newest first
+    history.reverse();
+    Ok(history)
+}
+
+#[tauri::command]
 async fn cleanup_python_process(
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -189,6 +325,9 @@ fn main() {
             set_projects_directory,
             open_directory_dialog,
             cleanup_python_process,
+            submit_feedback,
+            get_feedback_history,
+            delete_feedback,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
