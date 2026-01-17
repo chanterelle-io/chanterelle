@@ -484,6 +484,45 @@ pub async fn check_model_ready(state: tauri::State<'_, AppState>) -> Result<bool
     }
 }
 
+pub async fn submit_feedback(
+    feedback: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    println!("Submitting feedback to Python");
+    
+    let mut guard = state.python_process.lock().unwrap();
+    // If process is not running, we just ignore the Python part (it's optional custom action)
+    if let Some(process) = guard.as_mut() {
+         // Check if alive but don't fail hard if it's just for feedback? 
+         // Actually if it's there but dead, we should probably know.
+         // But validate_process_alive checks that.
+         if let Err(e) = validate_process_alive(process) {
+             println!("Python process validation failed during feedback: {}", e);
+             return Ok(()); // Don't fail the whole feedback submission if python is dead
+         }
+         
+         let request = serde_json::json!({
+             "command": "feedback",
+             "data": feedback
+         });
+         
+         let request_json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+         
+         if let Err(e) = send_request_to_python(process, &request_json) {
+              println!("Failed to send feedback to Python: {}", e);
+              return Ok(());
+         }
+         
+         // We expect a response
+         match read_response_from_python(process) {
+             Ok(response) => println!("Python feedback response: {:?}", response),
+             Err(e) => println!("Failed to read Python feedback response: {}", e),
+         }
+    }
+    
+    Ok(())
+}
+
 /// Manually cleanup the Python process. This will be called on app shutdown.
 pub async fn cleanup_python_process(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let mut guard = state.python_process.lock().unwrap();

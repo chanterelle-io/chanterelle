@@ -1,5 +1,5 @@
 import React from "react";
-import { ModelInput, ModelInputPreset, ModelInputGrouping, ModelInputConstraint } from "../../types/ModelMeta";
+import { ModelInput, ModelInputPreset, ModelInputGrouping } from "../../types/ModelMeta";
 import { ModelInputs } from "../../types/ModelInputs";
 import ModelInputField from "./ModelInputField";
 import ModelPresetField from "./ModelPresetField";

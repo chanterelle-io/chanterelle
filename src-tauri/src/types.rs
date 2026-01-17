@@ -166,6 +166,7 @@ pub struct ModelMeta {
     pub signed_url_base: Option<String>,
     pub signed_url_params: Option<String>,
     pub python_environment: Option<PythonEnvironment>,
+    pub allow_feedback: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

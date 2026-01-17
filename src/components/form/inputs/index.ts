@@ -36,7 +36,7 @@ const defaultValidator = (value: any, input: ModelInput, constraints?: ModelInpu
 // but the interface above has `input: ModelInput`. 
 // I'll update the interface to accept `constraints?: ModelInputConstraint`.
 
-const fileValidator = (value: any, input: ModelInput, constraints?: ModelInputConstraint): string | null => {
+const fileValidator = (value: any, input: ModelInput): string | null => {
     if (input.required) {
         if (!value || (Array.isArray(value) && value.length === 0)) {
             return `File "${input.label || input.name}" is required.`;
