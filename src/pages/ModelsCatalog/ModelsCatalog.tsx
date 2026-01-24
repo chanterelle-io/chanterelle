@@ -2,16 +2,16 @@ import React, { useState, useEffect } from "react";
 // import mlLogo from '../../assets/ml-logo.png';
 import appLogo from '../../assets/chanterelle.png';
 // import Header from "../../components/layout/Header";
-import { ModelMetaShort } from "../../types/ModelMeta";
+import { ProjectMeta } from "../../types/Project";
 import ModelCard from "./ModelCard";
 import { useNavigate } from "react-router";
-import { listModels } from "../../services/apis/listModels";
+import { listProjects } from "../../services/apis/listProjects";
 import { RotateCcw, Settings } from "lucide-react";
 
 // Main App Component
 const ModelsCatalog: React.FC = () => {
     const navigate = useNavigate();
-    const [models, setModels] = useState<ModelMetaShort[]>([]);
+    const [models, setModels] = useState<ProjectMeta[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ const ModelsCatalog: React.FC = () => {
     const loadModels = () => {
         setLoading(true);
         setError(null);
-        listModels()
+        listProjects()
             .then(setModels)
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false));
@@ -34,7 +34,7 @@ const ModelsCatalog: React.FC = () => {
     }, []);
 
     const filteredModels = models.filter(model =>
-        model.model_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        model.project_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         model.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (model.tags && Object.values(model.tags).some(tagValue => tagValue.toLowerCase().includes(searchQuery.toLowerCase())))
     );
@@ -94,9 +94,15 @@ const ModelsCatalog: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredModels.map(model => (
                             <ModelCard
-                                key={model.model_id}
+                                key={model.project_name}
                                 model={model}
-                                onClick={() => navigate(`/model/${model.project_name}`)}
+                                onClick={() => {
+                                    if (model.kind === 'analytics') {
+                                        navigate(`/analytics/${model.project_name}`);
+                                    } else {
+                                        navigate(`/model/${model.project_name}`);
+                                    }
+                                }}
                             />
                         ))}
 

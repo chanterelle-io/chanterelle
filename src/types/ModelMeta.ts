@@ -90,7 +90,7 @@ export interface PythonEnvironment {
 
 // Model Meta
 export interface ModelMeta {
-    model_id: string;
+    model_id?: string;
     model_name: string;
     model_version: string;
     description_short?: string;
@@ -107,19 +107,9 @@ export interface ModelMeta {
     input_presets?: ModelInputPreset[];
     input_groupings?: ModelInputGrouping[];
     outputs: ModelOutput[];
-    signed_url_base?: string;
-    signed_url_params?: string;
+    // signed_url_base?: string;
+    // signed_url_params?: string;
     python_environment?: PythonEnvironment;
     allow_feedback?: boolean;
 }
 
-export interface ModelMetaShort {
-    project_name: string;
-    model_id: string;
-    model_name: string;
-    description: string;
-    description_short?: string;
-    tags?: {
-        [tag_name: string]: string;
-    };
-}

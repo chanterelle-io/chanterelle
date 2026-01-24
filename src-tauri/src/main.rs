@@ -3,61 +3,15 @@
 
 // src-tauri/src/main.rs
 use std::collections::HashMap;
-use std::sync::Mutex;
 use tauri::Manager;
 
-mod models;
+mod projects;
 mod python_runner_io;
 mod settings;
 mod types;
+mod state;
 
-// App state to store settings
-#[derive(Default)]
-struct AppState {
-    settings: Mutex<settings::Settings>,
-    python_process: Mutex<Option<python_runner_io::PythonProcess>>,
-}
-
-#[tauri::command]
-async fn list_models(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<types::ModelMetaShort>, String> {
-    // Clean up any existing Python process when browsing models
-    // This ensures we don't have orphaned processes when switching between projects
-    {
-        let mut guard = state.python_process.lock().unwrap();
-        if let Some(existing_process) = guard.take() {
-            let existing_pid = existing_process.id();
-            println!("User browsing models - cleaning up existing Python process with PID: {}", existing_pid);
-            drop(existing_process); // Triggers Drop implementation
-        }
-    }
-    
-    let projects_dir = {
-        let settings = state.settings.lock().unwrap();
-        settings.projects_directory.clone()
-    };
-
-    if projects_dir.is_empty() {
-        return Err("No projects directory set. Please configure it in settings.".to_string());
-    }
-
-    models::list_all_models(&projects_dir).await.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-async fn get_model(
-    project_name: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<models::ModelDetails, String> {
-    // println!("Getting model details for project: {}", project_name);
-    // tauri::api::console::log(format!("Getting model details for project: {}", project_name).as_str());
-    let projects_dir = {
-        let settings = state.settings.lock().unwrap();
-        settings.projects_directory.clone()
-    };
-    models::get_model_details(&projects_dir, &project_name).await.map_err(|e| e.to_string())
-}
+use state::AppState;
 
 #[derive(serde::Serialize)]
 struct WarmupResponse {
@@ -317,8 +271,9 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            list_models,
-            get_model,
+            projects::list_projects,
+            projects::get_model_details,
+            projects::get_analytics_details,
             warmup_model,
             invoke_model,
             get_settings,

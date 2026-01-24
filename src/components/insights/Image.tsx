@@ -122,6 +122,9 @@ export const ImageComponent: React.FC<ImageItem> = (item) => {
     //     setImageKey(Date.now());
     // };
     
+    const src = getImageSrc(item.file_path, projectPath ?? "");
+    const finalSrc = src + (src.includes('?') ? '&' : '?') + `key=${imageKey}`;
+
     return (
         <div className="w-full flex justify-center">
             <div className="w-fit border border-gray-300 rounded-lg p-4 bg-white shadow-sm">
@@ -136,7 +139,7 @@ export const ImageComponent: React.FC<ImageItem> = (item) => {
                 </div> */}
                 <img
                     key={imageKey}
-                    src={getImageSrc(item.file_path, projectPath ?? "") + `&key=${imageKey}`}
+                    src={finalSrc}
                     alt={item.caption || item.file_path}
                     className={`${sizeClasses[size]} w-full object-contain`}
                     onLoad={() => {
@@ -144,7 +147,7 @@ export const ImageComponent: React.FC<ImageItem> = (item) => {
                     }}
                     onError={(e) => {
                         console.error('Failed to load image:', e);
-                        console.log('Failed src:', getImageSrc(item.file_path, projectPath ?? "") + `&key=${imageKey}`);
+                        console.log('Failed src:', finalSrc);
                     }}
                 />
             </div>

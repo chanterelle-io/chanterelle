@@ -1,18 +1,18 @@
 import type { ModelMeta } from '../../types/ModelMeta';
-import type { ModelInsights } from '../../types/ModelInsights';
+import type { ModelInsightsType } from '../../types/Project';
 import { invoke } from '@tauri-apps/api/core';
 
 
 export type ModelData = {
     model: ModelMeta;
-    findings: ModelInsights | null;
+    findings: ModelInsightsType | null;
     project_path: string; // Path to the project directory
 };
 
 export async function getModelMeta(project_name: string): Promise<ModelData> {
     console.log('Fetching model meta for project:', project_name);
     try {
-        let r =  await invoke('get_model', { projectName: project_name });
+        let r =  await invoke('get_model_details', { projectName: project_name });
         console.log('Model meta fetched:', r);
         // return r as ModelData;
         const data = r as ModelData;
@@ -20,7 +20,7 @@ export async function getModelMeta(project_name: string): Promise<ModelData> {
             throw new Error('Model meta data is empty or invalid');
         }
         const model_meta = data.model as ModelMeta;
-        const findings = (data.findings || null) as ModelInsights | null;
+        const findings = (data.findings || null) as ModelInsightsType | null;
         return {
             model: model_meta,
             findings: findings,

@@ -61,7 +61,7 @@ impl Drop for PythonProcess {
     }
 }
 
-use crate::AppState;
+use crate::state::AppState;
 use crate::types::{ModelMeta, PythonEnvironment};
 
 // load_model flow:
@@ -102,7 +102,7 @@ pub async fn load_model(
         let mut metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
             .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
             
-        crate::models::resolve_json_refs(&mut metadata_value, &model_dir)?;
+        crate::projects::resolve_json_refs(&mut metadata_value, &model_dir)?;
         
         let model_meta: ModelMeta = serde_json::from_value(metadata_value)
             .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
@@ -207,7 +207,7 @@ pub async fn load_model(
 
 /// Build the appropriate Python command based on the environment configuration
 fn build_python_command(python_env: &Option<PythonEnvironment>, model_dir: &Path) -> Result<Command, String> {
-    let mut command = match python_env {
+    let command = match python_env {
         Some(PythonEnvironment::System) | None => {
             // Use system Python
             println!("Using system Python");
@@ -286,7 +286,6 @@ fn ensure_base_handler_exists(model_dir: &Path) -> Result<(), String> {
 }
 
 pub async fn run_model(
-    // model_id: String,
     _projects_dir: &str,
     _project_name: &str,
     inputs: HashMap<String, serde_json::Value>,

@@ -1,10 +1,10 @@
-import { ModelMetaShort } from "../../types/ModelMeta";
+import { ProjectMeta } from "../../types/Project";
 // import ModelLogo from "../../components/common/ModelLogo";
 
 // Model Card Component
 interface ModelCardProps {
-    model: ModelMetaShort;
-    onClick: (model: ModelMetaShort) => void;
+    model: ProjectMeta;
+    onClick: (model: ProjectMeta) => void;
 }
 
 const ModelCard: React.FC<ModelCardProps> = ({ model, onClick }) => (
@@ -15,7 +15,7 @@ const ModelCard: React.FC<ModelCardProps> = ({ model, onClick }) => (
         {/* <div className="flex flex-col items-center mb-4"> */}
 
         <div className="flex flex-row justify-center items-center bg-blue-900 dark:bg-slate-700 rounded-t-lg mb-4">
-            <h3 className="text-lg text-center font-semibold font-mono text-white p-2">{model.model_name}</h3>
+            <h3 className="text-lg text-center font-semibold font-mono text-white p-2">{model.project_title}</h3>
             {/* <ModelLogo outputType={model.outputType} size={20}/>             */}
         </div>
     <p className="text-gray-600 dark:text-gray-300 mb-4 px-4 self-center">{model.description_short || model.description}</p>

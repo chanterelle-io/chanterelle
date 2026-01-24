@@ -152,7 +152,7 @@ pub enum PythonEnvironment {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModelMeta {
-    pub model_id: String,
+    pub model_id: Option<String>,
     pub model_name: String,
     pub model_version: String,
     pub description: String,
@@ -163,18 +163,16 @@ pub struct ModelMeta {
     pub input_presets: Option<Vec<ModelInputPreset>>,
     pub input_groupings: Option<Vec<ModelInputGrouping>>,
     pub outputs: Vec<ModelOutput>,
-    pub signed_url_base: Option<String>,
-    pub signed_url_params: Option<String>,
     pub python_environment: Option<PythonEnvironment>,
     pub allow_feedback: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ModelMetaShort {
+pub struct ProjectMeta {
     pub project_name: String, // folder name
-    pub model_id: String,
-    pub model_name: String,
+    pub project_title: String,
     pub description: String,
     pub description_short: String,
     pub tags: Option<HashMap<String, String>>,
+    pub kind: String, // "model" or "analytics"
 }
