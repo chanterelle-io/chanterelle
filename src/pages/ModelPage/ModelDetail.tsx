@@ -11,7 +11,19 @@ const ModelDetail: React.FC<ModelDetailProps> = ({ model }) => {
     return (
     <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 mb-6 transition-colors border border-transparent dark:border-slate-700">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{model.model_name}</h2>
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{model.model_name}</h2>
+                    <div className="flex items-center space-x-2">
+                        {model.model_id && (
+                            <p className="font-medium font-mono text-sm">{model.model_id}</p>
+                        )}
+                        {model.model_id && model.model_version && (<span className="text-gray-400 dark:text-gray-500">|</span>
+                        )}
+                        {model.model_version && (
+                            <p className="font-medium font-mono text-sm">v{model.model_version}</p>
+                        )}
+                    </div>
+                </div>
                 {/* <ModelLogo outputType={model.outputs[0]?.type} size={24} /> */}
             </div>
             <p className="text-gray-700 dark:text-gray-300 mb-4">{model.description}</p>
@@ -88,9 +100,10 @@ const ModelDetail: React.FC<ModelDetailProps> = ({ model }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="mb-6">
+                <h3 className="text-md font-semibold mb-3 text-slate-800 dark:text-slate-100">Outputs</h3>
                 <div className="border border-gray-200 dark:border-slate-600 rounded-md p-3">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Output(s)</p>
+                    {/* <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Output(s)</p> */}
                     {model.outputs && model.outputs.length > 0 ? (
                         <ul className="space-y-2">
                             {model.outputs.map((output, idx) => (
@@ -102,16 +115,16 @@ const ModelDetail: React.FC<ModelDetailProps> = ({ model }) => {
                                         </span>
                                     </div>
                                     {output.description && (
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">{output.description}</div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">{output.description}</div>
                                     )}
                                     {output.min != undefined && (
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Min: {output.min}</div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">Min: {output.min}</div>
                                     )}
                                     {output.max != undefined && (
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Max: {output.max}</div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">Max: {output.max}</div>
                                     )}
                                     {output.options && (
-                                        <div className="text-xs text-gray-600 dark:text-gray-400">Options: {Array.isArray(output.options)
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">Options: {Array.isArray(output.options)
                                             ? (typeof output.options[0] === 'string'
                                                 ? (output.options as string[]).join(', ')
                                                 : (output.options as { value: string; label?: string }[])
@@ -124,16 +137,16 @@ const ModelDetail: React.FC<ModelDetailProps> = ({ model }) => {
                             ))}
                         </ul>
                     ) : (
-                        <span className="text-xs text-gray-400 dark:text-gray-500">No outputs defined</span>
+                        <span className="text-sm text-gray-400 dark:text-gray-500">No outputs</span>
                     )}
                 </div>
-                <div className="border border-gray-200 dark:border-slate-600 rounded-md p-3">
+                {/* <div className="border border-gray-200 dark:border-slate-600 rounded-md p-3">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Model ID / Version</p>
                     <p className="font-medium font-mono text-sm">{model.model_id} / v{model.model_version}</p>
-                </div>
+                </div> */}
             </div>
 
-            <div className="mb-4">
+            <div className="">
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Tags</p>
                 <div className="flex flex-wrap gap-2">
                     {model.tags && Object.keys(model.tags).length > 0 ? (

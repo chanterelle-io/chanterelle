@@ -1,13 +1,13 @@
-import type { ModelMetaShort } from '../../types/ModelMeta';
+import type { ProjectMeta } from "../../types/Project";
 
 import { invoke } from '@tauri-apps/api/core';
 
 
-export async function listModels(): Promise<ModelMetaShort[]> {
+export async function listProjects(): Promise<ProjectMeta[]> {
     try {
-        let s =  await invoke('list_models');
-        console.log('Models fetched:', s);
-        return s as ModelMetaShort[];
+        let s =  await invoke('list_projects');
+        console.log('Projects fetched:', s);
+        return s as ProjectMeta[];
     } catch (error) {
         if (typeof error === 'string' && error.includes('No projects directory set')) {
             throw new Error('Please configure your projects directory in settings first.');

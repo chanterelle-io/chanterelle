@@ -4,6 +4,7 @@ import './App.css';
 import { FirstTimeSetup } from './components/FirstTimeSetup';
 import ModelsCatalog from './pages/ModelsCatalog/ModelsCatalog';
 import ModelPage from './pages/ModelPage/ModelPage';
+import AnalyticsPage from './pages/AnalyticsPage/AnalyticsPage';
 import { Settings } from './pages/Settings/Settings';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ProjectProvider } from './contexts/ProjectContext';
@@ -84,6 +85,7 @@ const App: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<ModelsCatalog />} />
                   <Route path="/model/:modelId" element={<ModelPage />} />
+                  <Route path="/analytics/:projectId" element={<AnalyticsPage />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </main>
