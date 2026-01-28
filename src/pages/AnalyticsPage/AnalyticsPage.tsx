@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import LoadSpinner from "../../components/common/LoadSpinner";
+import ErrorBoundary from "../../components/common/ErrorBoundary";
 import AnalyticsInsights from "./AnalyticsInsights";
 import { getAnalyticsDetails, AnalyticsDetails } from "../../services/apis/getAnalyticsDetails";
 import { useProjectContext } from "../../contexts/ProjectContext";
@@ -67,7 +68,37 @@ const AnalyticsPage: React.FC = () => {
             {loading && !details && <LoadSpinner />}
             {!loading && error && <div className="p-8 text-red-500">Error: {error}</div>}
             {!loading && !error && !details && <div className="p-8">No details found.</div>}
-            {!!details && <AnalyticsInsights insights={details.insights} />}
+            {!!details && (
+                <ErrorBoundary
+                    fallback={({ error, reset }) => (
+                        <div className="p-6 my-4 rounded border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200">
+                            <div className="font-semibold mb-2">Analytics render error</div>
+                            <div className="text-sm whitespace-pre-wrap">{error.message}</div>
+                            <div className="mt-4 flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        reset();
+                                        loadDetails();
+                                    }}
+                                    className="px-3 py-2 rounded bg-red-600 text-white text-sm hover:bg-red-700"
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={reset}
+                                    className="px-3 py-2 rounded border border-red-300 dark:border-red-700 text-sm"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                >
+                    <AnalyticsInsights insights={details.insights} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 };

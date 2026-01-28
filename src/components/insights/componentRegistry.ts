@@ -16,6 +16,8 @@ import { PlotlyComponent, PlotlyIcon } from "./PlotlyChart";
 import type { PlotlyItem } from "./PlotlyChart";
 import { HtmlComponent, HtmlIcon } from "./Html";
 import type { HtmlItem } from "./Html";
+import { MarkdownComponent, MarkdownIcon } from "./Markdown";
+import type { MarkdownItem } from "./Markdown";
 
 // Component registry type - components must accept props that extend BaseItem
 export type ComponentRegistryItem<T extends BaseItem = BaseItem> = {
@@ -64,6 +66,10 @@ export const componentRegistry: ComponentRegistry = {
         Component: HtmlComponent,
         icon: HtmlIcon,
     },
+    markdown: {
+        Component: MarkdownComponent,
+        icon: MarkdownIcon,
+    },
 };
 
 export type ItemType = TableItem
@@ -74,4 +80,5 @@ export type ItemType = TableItem
     | ErrorMessageItem
     | ScatterPlotItem
     | PlotlyItem
-    | HtmlItem;
+    | HtmlItem
+    | MarkdownItem;
