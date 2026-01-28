@@ -40,7 +40,7 @@ const ModelsCatalog: React.FC = () => {
     );
 
     return (
-        <div className="min-h-screen bg-indigo-50 dark:bg-slate-900 transition-colors">
+        <div className="min-h-full bg-indigo-50 dark:bg-slate-900 transition-colors">
             {/* <Header /> */}
             <div className="fixed top-12 right-6 flex items-center justify-between mb-4 z-40">
                     {/* <div className="flex-1"></div> */}
@@ -67,7 +67,7 @@ const ModelsCatalog: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-center justify-center mb-8">
                     <p className="ml-2 text-l font-mono text-gray-700 dark:text-gray-300 mb-3">
-                        Explore and Invoke Machine Learning Models
+                        Explore and Invoke Machine Learning
                     </p>
                     <input
                         type="text"
@@ -99,6 +99,8 @@ const ModelsCatalog: React.FC = () => {
                                 onClick={() => {
                                     if (model.kind === 'analytics') {
                                         navigate(`/analytics/${model.project_name}`);
+                                    } else if (model.kind === 'interactive') {
+                                        navigate(`/interactive/${model.project_name}`);
                                     } else {
                                         navigate(`/model/${model.project_name}`);
                                     }

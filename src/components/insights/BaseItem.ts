@@ -1,9 +1,14 @@
 export interface BaseItem {
     type: string;
     id?: string;
-    title: string;
+    title?: string;
     description?: string;
     comment?: string;
+    /**
+     * Optional layout hint for renderers (e.g., charts) to use the full available width.
+     * When omitted/false, components may apply a max-width for better readability.
+     */
+    full_width?: boolean;
 }
 
 

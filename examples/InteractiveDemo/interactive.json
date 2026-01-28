@@ -1,0 +1,13 @@
+{
+    "interactive_name": "Echo Bot Demo",
+    "version": "1.0.0",
+    "description": "A demonstration of the interactive agent capabilities.",
+    "description_short": "Interactive Demo",
+    "tags": {
+        "type": "demo"
+    },
+    "python_environment": {
+        "type": "system"
+    },
+    "inputs": []
+}

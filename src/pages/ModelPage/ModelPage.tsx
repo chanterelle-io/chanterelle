@@ -18,7 +18,7 @@ const ModelPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"detail" | "insights" | "form">("detail"); // Tab state
-    
+
     // Model warming state
     const [isWarming, setIsWarming] = useState(false);
     const [warmStatus, setWarmStatus] = useState<'idle' | 'warming' | 'ready' | 'error'>('idle');
@@ -46,11 +46,11 @@ const ModelPage: React.FC = () => {
 
     const handleWarmModel = async () => {
         if (!modelId) return;
-        
+
         setIsWarming(true);
         setWarmStatus('warming');
         setWarmError(null);
-        
+
         try {
             const response = await warmModel(modelId);
             if (response.warmup) {
@@ -70,7 +70,7 @@ const ModelPage: React.FC = () => {
     useEffect(() => {
         // Scroll to top when navigating to this page
         window.scrollTo(0, 0);
-        
+
         loadModelData();
         // Automatically warm up the model when the page loads
         handleWarmModel();
@@ -92,33 +92,36 @@ const ModelPage: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-slate-900 pb-5 pt-3 sm:px-2 lg:px-4 transition-colors">
-            <div 
-                className={`sticky ${isMac ? 'top-0 z-50' : 'top-8 z-30'} bg-gray-50 dark:bg-slate-900/90 backdrop-blur mb-2 flex items-center justify-between`}
+        <div className="min-h-full bg-gray-50 dark:bg-slate-900 pb-5 sm:px-2 lg:px-4 transition-colors">
+            <div
+                className={`sticky ${isMac ? 'top-0 z-50' : 'top-8 z-30'} py-2 px-5 bg-gray-50 dark:bg-slate-900/90 backdrop-blur mb-2 flex items-center justify-between`}
                 data-tauri-drag-region={isMac ? "true" : undefined}
             >
                 <button
-                    onClick={() => navigate("/")}
-                    className="flex items-center text-blue-600 hover:text-blue-400 dark:hover:text-blue-500 hover:cursor-pointer"
+                    onClick={() => navigate('/')}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                    title="Back to catalog"
                 >
-                    <ArrowLeft className="mr-1" size={16} /> Back to catalog
+                    <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
                 </button>
+                <h2 className="text-lg font-mono font-semibold text-slate-800 dark:text-slate-100">
+                    {modelData ? modelData.model.model_name : 'Loading...'}
+                </h2>
                 <div className="flex items-center gap-3">
                     <button
                         onClick={handleWarmModel}
                         disabled={isWarming}
-                        className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                            warmStatus === 'ready' 
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-300/20 dark:text-green-300 dark:hover:bg-green-300/30' 
+                        className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${warmStatus === 'ready'
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-300/20 dark:text-green-300 dark:hover:bg-green-300/30'
                                 : warmStatus === 'error'
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-300/20 dark:text-red-300 dark:hover:bg-red-300/30'
-                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-300/20 dark:text-blue-300 dark:hover:bg-blue-300/30'
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-300/20 dark:text-red-300 dark:hover:bg-red-300/30'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-300/20 dark:text-blue-300 dark:hover:bg-blue-300/30'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                         title={
                             warmStatus === 'ready' ? 'Model is ready' :
-                            warmStatus === 'error' ? `Error: ${warmError}` :
-                            warmStatus === 'warming' ? 'Warming up model...' :
-                            'Warm up model'
+                                warmStatus === 'error' ? `Error: ${warmError}` :
+                                    warmStatus === 'warming' ? 'Warming up model...' :
+                                        'Warm up model'
                         }
                     >
                         {warmStatus === 'warming' && <RotateCcw className="mr-1 animate-spin" size={14} />}
@@ -127,9 +130,9 @@ const ModelPage: React.FC = () => {
                         {warmStatus === 'idle' && <Play className="mr-1" size={14} />}
                         <span>
                             {warmStatus === 'warming' ? 'Warming...' :
-                             warmStatus === 'ready' ? 'Ready' :
-                             warmStatus === 'error' ? 'Error' :
-                             'Warm Up'}
+                                warmStatus === 'ready' ? 'Ready' :
+                                    warmStatus === 'error' ? 'Error' :
+                                        'Warm Up'}
                         </span>
                     </button>
                     <button
@@ -154,33 +157,30 @@ const ModelPage: React.FC = () => {
                     {/* Tabs */}
                     <div className="mb-4 flex border-b border-gray-200 dark:border-slate-700">
                         <button
-                className={`px-4 py-2 -mb-px border-b-2 transition-colors ${
-                                activeTab === "detail"
+                            className={`px-4 py-2 -mb-px border-b-2 transition-colors ${activeTab === "detail"
                                     ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
-                            }`}
+                                    : "border-transparent text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
+                                }`}
                             onClick={() => setActiveTab("detail")}
                         >
                             Model Card
                         </button>
                         {modelData.findings && (
                             <button
-                className={`px-4 py-2 -mb-px border-b-2 transition-colors ${
-                                    activeTab === "insights"
+                                className={`px-4 py-2 -mb-px border-b-2 transition-colors ${activeTab === "insights"
                                         ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
-                                }`}
+                                        : "border-transparent text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
+                                    }`}
                                 onClick={() => setActiveTab("insights")}
                             >
                                 Insights
                             </button>
                         )}
                         <button
-                className={`ml-2 px-4 py-2 -mb-px border-b-2 transition-colors ${
-                                activeTab === "form"
+                            className={`ml-2 px-4 py-2 -mb-px border-b-2 transition-colors ${activeTab === "form"
                                     ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
-                            }`}
+                                    : "border-transparent text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
+                                }`}
                             onClick={() => setActiveTab("form")}
                         >
                             Practice

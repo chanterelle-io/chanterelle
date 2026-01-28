@@ -301,8 +301,15 @@ export const PlotlyComponent: React.FC<PlotlyItem> = (item) => {
         ...(normalizePlotlyLayout(item.layout) || {})
     };
 
+    const outerClass = item.full_width
+        ? "w-full"
+        : "w-full max-w-4xl mx-auto";
+
     return (
-        <div className="w-full flex justify-center p-2 bg-white rounded-lg border border-gray-200" style={{ minHeight: "450px" }}>
+        <div
+            className={`${outerClass} p-2 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700`}
+            style={{ minHeight: "450px" }}
+        >
             <Plot
                 data={data}
                 layout={layout}

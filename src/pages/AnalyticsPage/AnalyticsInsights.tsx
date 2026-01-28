@@ -78,9 +78,9 @@ const AnalyticsInsights: React.FC<AnalyticsInsightsProps> = ({ insights }) => {
         </ul>
       </aside>
       {/* Main Content */}
-      <main className="flex-1 p-4 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
-        {insights.content.map((section) => (
-          <SectionComponent key={section.id} section={section} />
+      <main className="flex-1 px-4 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
+        {insights.content.map((section, idx) => (
+          <SectionComponent key={section.id || idx} section={section} index={idx} />
         ))}
       </main>
     </div>

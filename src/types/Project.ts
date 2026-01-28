@@ -8,12 +8,12 @@ export interface ProjectMeta {
     tags?: {
         [tag_name: string]: string;
     };
-    kind: 'model' | 'analytics';
+    kind: 'model' | 'analytics' | 'interactive';
 }
 
 // Generic "Insights" structure used by both Models and Analytics
 export interface ProjectInsights {
-  content: SectionType[];
+    content: SectionType[];
 }
 
 export type ModelInsightsType = ProjectInsights;

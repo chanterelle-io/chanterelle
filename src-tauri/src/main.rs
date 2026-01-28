@@ -54,6 +54,20 @@ async fn invoke_model(
     python_runner_io::run_model(&projects_dir, &project_name, inputs, state).await
 }
 
+#[tauri::command]
+async fn invoke_interactive(
+    project_name: String,
+    inputs: HashMap<String, serde_json::Value>,
+    window: tauri::Window,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let projects_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.projects_directory.clone()
+    };
+    python_runner_io::run_interactive(&projects_dir, &project_name, inputs, window, state).await
+}
+
 // Settings commands
 #[tauri::command]
 async fn get_settings(state: tauri::State<'_, AppState>) -> Result<settings::Settings, String> {
@@ -276,6 +290,7 @@ fn main() {
             projects::get_analytics_details,
             warmup_model,
             invoke_model,
+            invoke_interactive,
             get_settings,
             set_projects_directory,
             open_directory_dialog,
