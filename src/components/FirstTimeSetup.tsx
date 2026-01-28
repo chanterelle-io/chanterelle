@@ -17,7 +17,7 @@ export const FirstTimeSetup: React.FC<{ onComplete: () => void }> = ({ onComplet
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+    <div className="min-h-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 max-w-md w-full space-y-6">
         <div className="text-center space-y-4">
           {/* <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">

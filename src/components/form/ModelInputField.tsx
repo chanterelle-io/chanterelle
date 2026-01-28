@@ -13,7 +13,7 @@ const ModelInputField: React.FC<ModelInputFieldProps> = ({ input, value, constra
     const Component = getInputComponent(input.type);
 
     return (
-        <div className="flex flex-col">
+        <div className={`flex flex-col ${input.type === "textarea" ? "col-span-full" : ""}`}>
             <label className="font-medium mb-1 text-slate-800 dark:text-slate-200">
                 {input.label || input.name}
                 {input.required && <span className="text-red-500 ml-1">*</span>}

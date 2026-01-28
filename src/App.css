@@ -22,11 +22,19 @@
   color-scheme: dark;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-bg);
   color: var(--color-text);
   transition: background-color 0.25s, color 0.25s;
+  margin: 0;
+  overflow: hidden;
 }
 
 /* Custom animations and utilities */

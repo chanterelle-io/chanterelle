@@ -53,7 +53,7 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-indigo-50 dark:bg-slate-900 transition-colors">
+    <div className="min-h-full bg-indigo-50 dark:bg-slate-900 transition-colors">
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex items-center mb-8">
           <h1 className="text-3xl font-bold font-mono text-blue-950 dark:text-slate-100">Settings</h1>

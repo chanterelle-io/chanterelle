@@ -2,6 +2,8 @@ import React from "react";
 import { Text  } from "lucide-react";
 import { BaseItem } from "./BaseItem";
 
+type TextValue = string | string[];
+
 // Data type
 export interface TextData {
     content: TextContent[];
@@ -15,7 +17,7 @@ export interface TextData {
 export interface TextContent {
     id?: string;
     type: 'paragraph' | 'bullet_list';
-    text: string;
+    text: TextValue;
     style?: {
         color?: string;
         backgroundColor?: string;
@@ -27,7 +29,7 @@ export interface TextContent {
 }
 
 export interface BulletPoint {
-    text: string;
+    text: TextValue;
     style?: {
         color?: string;
         backgroundColor?: string;
@@ -75,13 +77,36 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
         );
     }
 
+    const normalizeTextLines = (value: TextValue | null | undefined): string[] => {
+        if (value == null) return [];
+
+        const parts = Array.isArray(value) ? value : [value];
+        return parts
+            .flatMap((part) => String(part).split(/\r?\n/))
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+    };
+
+    const hasNonEmptyText = (value: TextValue | null | undefined) => {
+        return normalizeTextLines(value).length > 0;
+    };
+
+    const renderTextLines = (value: TextValue) => {
+        const lines = normalizeTextLines(value);
+        return (
+            <>
+                {lines.map((line, lineIndex) => (
+                    <React.Fragment key={lineIndex}>
+                        {line}
+                        {lineIndex < lines.length - 1 && <br />}
+                    </React.Fragment>
+                ))}
+            </>
+        );
+    };
+
     // Filter out invalid content items
-    const validContent = data.content.filter(item => 
-        item && 
-        item.text && 
-        typeof item.text === 'string' && 
-        item.text.trim().length > 0
-    );
+    const validContent = data.content.filter((item) => item && hasNonEmptyText(item.text));
 
     // Check if any valid content remains after filtering
     if (validContent.length === 0) {
@@ -145,7 +170,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
                             `}
                             style={buildInlineStyle(bullet.style)}
                         >
-                            {bullet.text}
+                            {renderTextLines(bullet.text)}
                         </span>
                         {bullet.nested && bullet.nested.length > 0 && (
                             <div className="mt-1">
@@ -182,7 +207,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
                         if (contentItem.type === 'bullet_list') {
                             return (
                                 <div key={key} className="space-y-2">
-                                    {contentItem.text && (
+                                    {hasNonEmptyText(contentItem.text) && (
                                         <p
                                             className={`
                                                 mb-2 leading-relaxed
@@ -191,7 +216,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
                                             `}
                                             style={buildInlineStyle(contentItem.style)}
                                         >
-                                            {contentItem.text}
+                                            {renderTextLines(contentItem.text)}
                                         </p>
                                     )}
                                     {contentItem.bulletPoints && contentItem.bulletPoints.length > 0 ? (
@@ -215,7 +240,7 @@ export const TextComponent: React.FC<TextItem> = ( data ) => {
                                     `}
                                     style={buildInlineStyle(contentItem.style)}
                                 >
-                                    {contentItem.text}
+                                    {renderTextLines(contentItem.text)}
                                 </p>
                             );
                         }

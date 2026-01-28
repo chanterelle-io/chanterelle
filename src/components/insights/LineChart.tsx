@@ -36,7 +36,7 @@ export interface LineChartItem extends BaseItem {
 }
 
 // LineChart Component
-export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
+export const LineChartComponent: React.FC<LineChartItem> = ({ data, full_width }) => {
     // Early returns: Check for missing or invalid data
     // Check if data exists
     if (!data) {
@@ -154,15 +154,20 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data }) => {
         },
     };
 
+    const outerClass = full_width ? "w-full" : "w-full flex justify-center";
+    const chartClass = full_width
+        ? "w-full h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800"
+        : "w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800";
+
     return (
-        <div className="w-full flex justify-center">
+        <div className={outerClass}>
             {/* Show axis warning if missing */}
             {(!data.axis || !data.axis.x || !data.axis.y) && (
                 <div className="mb-2 p-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded">
                     ℹ️ Info: Using default axis labels (axis configuration missing)
                 </div>
             )}
-            <div className="w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800">
+            <div className={chartClass}>
                 <Line data={chartData} options={options} />
             </div>
         </div>

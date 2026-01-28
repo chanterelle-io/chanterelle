@@ -174,5 +174,5 @@ pub struct ProjectMeta {
     pub description: String,
     pub description_short: String,
     pub tags: Option<HashMap<String, String>>,
-    pub kind: String, // "model" or "analytics"
+    pub kind: String, // "model" or "analytics" or "interactive"
 }

@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 // use HashMap
 use std::collections::HashMap;
+use tauri::Emitter;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -93,39 +94,69 @@ pub async fn load_model(
         return Err("handler_io.py not found".to_string());
     }
     
-    // Load model metadata to get Python environment configuration
-    let metadata_path = model_dir.join("model_meta.json");
-    let python_environment = if metadata_path.exists() {
-        let metadata_content = std::fs::read_to_string(&metadata_path)
-            .map_err(|e| format!("Failed to read model_meta.json: {}", e))?;
+    // Determine project type and load configuration
+    let interactive_meta_path = model_dir.join("interactive.json");
+    let is_interactive = interactive_meta_path.exists();
+
+    let mut python_environment = None;
+
+    if is_interactive {
+        let content = std::fs::read_to_string(&interactive_meta_path)
+            .map_err(|e| format!("Failed to read interactive.json: {}", e))?;
         
-        let mut metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
-            .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+        let mut value: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse interactive.json: {}", e))?;
             
-        crate::projects::resolve_json_refs(&mut metadata_value, &model_dir)?;
+        crate::projects::resolve_json_refs(&mut value, &model_dir)?;
         
-        let model_meta: ModelMeta = serde_json::from_value(metadata_value)
-            .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
-        model_meta.python_environment
-    } else {
-        None
-    };
+        if let Some(env_val) = value.get("python_environment") {
+             let env: crate::types::PythonEnvironment = serde_json::from_value(env_val.clone())
+                .map_err(|e| format!("Failed to parse python_environment from interactive.json: {}", e))?;
+             python_environment = Some(env);
+        }
+    }
+
+    if python_environment.is_none() {
+        let metadata_path = model_dir.join("model_meta.json");
+        if metadata_path.exists() {
+            let metadata_content = std::fs::read_to_string(&metadata_path)
+                .map_err(|e| format!("Failed to read model_meta.json: {}", e))?;
+            
+            let mut metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
+                .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+            
+            crate::projects::resolve_json_refs(&mut metadata_value, &model_dir)?;
+            
+            let model_meta: ModelMeta = serde_json::from_value(metadata_value)
+                .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+            python_environment = model_meta.python_environment;
+        }
+    }
     
-    // Ensure the base handler file exists in the project directory
+    // Ensure the base handler files exist in the project directory
     ensure_base_handler_exists(&model_dir)?;
+    ensure_interactive_handler_exists(&model_dir)?;
     
+    let handler_script = if is_interactive {
+        "python_interactive_handler_base.py"
+    } else {
+        "python_handler_base.py"
+    };
+
     // Build the appropriate Python command based on environment configuration
     let mut command = build_python_command(&python_environment, &model_dir)?;
     
+    let python_exe_for_error = format!("{:?}", command.get_program());
+
     let mut child = command
         .arg("-u") // Unbuffered output
-        .arg(&model_dir.join("python_handler_base.py"))  // Run base handler directly
+        .arg(&model_dir.join(handler_script))  // Run appropriate base handler
         .arg(&handler_py)  // Pass user's handler as argument
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped()) // Capture stderr for debugging
         .spawn()
-        .map_err(|e| format!("Failed to start Python: {}", e))?;
+        .map_err(|e| format!("Failed to start Python (exe={}): {}", python_exe_for_error, e))?;
 
     let stdin = child.stdin.take().unwrap();
     let mut stdout = BufReader::new(child.stdout.take().unwrap());
@@ -211,7 +242,11 @@ fn build_python_command(python_env: &Option<PythonEnvironment>, model_dir: &Path
         Some(PythonEnvironment::System) | None => {
             // Use system Python
             println!("Using system Python");
-            Command::new("python")
+            if cfg!(windows) {
+                Command::new("python")
+            } else {
+                Command::new("python3")
+            }
         }
         Some(PythonEnvironment::Venv { path }) => {
             // Use virtual environment
@@ -282,6 +317,60 @@ fn ensure_base_handler_exists(model_dir: &Path) -> Result<(), String> {
         .map_err(|e| format!("Failed to create/update base handler file: {}", e))?;
     println!("Updated python_handler_base.py in project directory");
     
+    Ok(())
+}
+
+fn ensure_interactive_handler_exists(model_dir: &Path) -> Result<(), String> {
+    let handler_path = model_dir.join("python_interactive_handler_base.py");
+    let content = include_str!("python_interactive_handler_base.py");
+    std::fs::write(&handler_path, content)
+        .map_err(|e| format!("Failed to create/update interactive handler file: {}", e))?;
+    Ok(())
+}
+
+pub async fn run_interactive(
+    _projects_dir: &str,
+    _project_name: &str,
+    inputs: HashMap<String, serde_json::Value>,
+    window: tauri::Window,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    println!("Running interactive session with inputs: {:?}", inputs);
+    
+    let mut guard = state.python_process.lock().unwrap();
+    let process = guard.as_mut().ok_or("Python process not started")?;
+    validate_process_alive(process)?;
+    
+    let inputs_json = serde_json::to_string(&inputs).map_err(|e| e.to_string())?;
+    send_request_to_python(process, &inputs_json)?;
+    
+    // Loop to read streaming responses
+    loop {
+        let mut line = String::new();
+        match process.stdout.read_line(&mut line) {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                let trimmed = line.trim();
+                if trimmed.is_empty() { continue; }
+                
+                // Try parsing to ensure validity before emitting
+                match serde_json::from_str::<serde_json::Value>(trimmed) {
+                    Ok(json_val) => {
+                        window.emit("interactive:output", &json_val).map_err(|e| e.to_string())?;
+                        
+                                                if json_val.get("next_inputs").is_some() ||
+                                                     json_val.get("done").and_then(|b| b.as_bool()) == Some(true) {
+                             break;
+                        }
+                    },
+                    Err(e) => {
+                        println!("Error parsing interactive output: {}", e);
+                    }
+                }
+            }
+            Err(e) => return Err(format!("Error reading from Python: {}", e)),
+        }
+    }
     Ok(())
 }
 

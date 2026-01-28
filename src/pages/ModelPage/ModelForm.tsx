@@ -313,10 +313,11 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
             {/* Results (full width; does not contract when history is open) */}
             {result && result.length > 0 && (
                 <div className="p-4 rounded-lg bg-white dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 overflow-x-auto min-w-0">
-                    {result.map((section) => (
+                    {result.map((section, idx) => (
                         <SectionComponent
-                            key={section.id}
+                            key={section.id || idx}
                             section={section}
+                            index={idx}
                         />
                     ))}
                     {model.allow_feedback && modelId && (

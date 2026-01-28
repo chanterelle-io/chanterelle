@@ -31,7 +31,7 @@ export interface SectionType {
     type: 'section';
     color?: 'white' | 'red' | 'green' | 'blue' | 'yellow' | 'purple' | 'orange'; // Optional: color for section header
     id?: string;
-    title: string;
+    title?: string;
     description?: string;
     items?: SectionOrItemType[]; // Optional: array of items or subsections
     items_per_row?: number; // Optional: number of items to display per row (default: 1)
@@ -78,14 +78,30 @@ interface SectionComponentProps {
     section: SectionType;
     level?: number;
     parentId?: string;
+    index?: number;
 }
 
 export const SectionComponent: React.FC<SectionComponentProps> = ({
     section,
     level = 1,
-    parentId = ""
+    parentId = "",
+    index
 }) => {
-    const localId = section.id || (section.title ? section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'section');
+    const hasTitle = Boolean(section.title);
+
+    const slugify = (value: string) =>
+        value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+    const localId =
+        section.id ||
+        (section.title
+            ? slugify(section.title)
+            : typeof index === 'number'
+                ? `section-${index}`
+                : 'section');
     const sectionId = parentId ? `${parentId}__${localId}` : localId;
     const headingClass =
         level === 1
@@ -148,10 +164,12 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
     };
 
     return (
-        <div className={`p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}`}>
-            <div className={headingClass}>
-                <h2 className="flex-1">{section.title}</h2>
-            </div>
+        <div className={`${hasTitle ? `p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}` : ''}`}>
+            {section.title && (
+                <div className={headingClass}>
+                    <h2 className="flex-1">{section.title}</h2>
+                </div>
+            )}
             
             {section.description && (
                 <p className="mb-3 text-gray-600 dark:text-gray-300">{section.description}</p>
@@ -201,7 +219,13 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
 // Recursive item renderer
 export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId = "", index = 0): JSX.Element | null => {
     if (!item) return null;
-    const localId = item.id || (item.title ? item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `item-${index}`);
+    const slugify = (value: string) =>
+        value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+    const localId = item.id || (item.title ? slugify(item.title) : `item-${index}`);
     const itemId = parentId ? `${parentId}__${localId}` : localId;
 
     if (item.type === "section") {
@@ -212,6 +236,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
                 section={{...item, id: localId} as SectionType}
                 level={level + 1}
                 parentId={parentId}
+                index={index}
             />
         );
     } else {
@@ -221,17 +246,21 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         const DataComponent = componentRegistry[item.type]?.Component;
         
         return (
-            <div key={localId} id={itemId} className="mb-1 p-1" data-toc>
-                <div className="mb-3">
-                    <h4 className="text-lg font-semibold mb-1 flex items-center">
-                        {IconComponent && <IconComponent />}
-                        {item.title}
-                    </h4>
-                    {item.description && (
-                        <p className="text-sm text-gray-600">{item.description}</p>
-                    )}
-                </div>
-                <div className="mb-3">
+            <div key={localId} id={itemId} className="" data-toc>
+                {(item.title || item.description) && (
+                    <div className="mb-3">
+                        {item.title && (
+                            <h4 className="text-lg font-semibold mb-1 flex items-center">
+                                {IconComponent && <IconComponent />}
+                                {item.title}
+                            </h4>
+                        )}
+                        {item.description && (
+                            <p className="text-sm text-gray-600">{item.description}</p>
+                        )}
+                    </div>
+                )}
+                <div className="">
                     {DataComponent && <DataComponent { ...item } />}
                 </div>
                 {item.comment && (
