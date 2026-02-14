@@ -10,6 +10,7 @@ import { getInputDefinition } from "../../components/form/inputs";
 import { Send, RefreshCw, AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
 import { warmModel } from "../../services/apis/warmModel";
 import { resolveEffectiveConstraints } from "../../utils/formUtils";
+import { forceKillPython } from "../../services/apis/forceKillPython";
 // import { getModelMeta } from "../../services/apis/getModelMeta";
 // We reuse ModelMeta type for interactive definition if compatible?
 // Yes, we will just use it to type the project info we fetched.
@@ -17,6 +18,17 @@ import { resolveEffectiveConstraints } from "../../utils/formUtils";
 interface InteractivePageProps {
     project?: ProjectMeta;
 }
+
+type ConversationTurn = {
+    id: string;
+    type: "user" | "agent";
+    content: any;
+    createdAt: number;
+};
+
+type UserDisplay =
+    | { kind: "text"; text: string }
+    | { kind: "fields"; fields: Array<{ label: string; value: string }> };
 
 const InteractivePage: React.FC<InteractivePageProps> = () => {
     const { modelId } = useParams<{ modelId: string }>(); // project_name
@@ -26,7 +38,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const [isMac] = useState(() => navigator.userAgent.includes('Mac'));
     
     // Conversation State
-    const [history, setHistory] = useState<Array<{ type: 'user' | 'agent', content: any }>>([]);
+    const [history, setHistory] = useState<ConversationTurn[]>([]);
     const [currentFormInputs, setCurrentFormInputs] = useState<ModelInput[] | null>(null);
     const [inputValues, setInputValues] = useState<ModelInputs>({});
     
@@ -34,8 +46,21 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const [processing, setProcessing] = useState(false);
     const [initializing, setInitializing] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
+    const [composerDockHeight, setComposerDockHeight] = useState(220);
     const unlistenFnRef = useRef<Function | null>(null);
+    const historyContainerRef = useRef<HTMLElement>(null);
+    const historyContentRef = useRef<HTMLDivElement>(null);
+    const historyEndRef = useRef<HTMLDivElement>(null);
+    const stickToBottomRef = useRef(true);
+    const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const composerDockRef = useRef<HTMLDivElement>(null);
+
+    const buildTurn = (type: "user" | "agent", content: any): ConversationTurn => ({
+        id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        type,
+        content,
+        createdAt: Date.now(),
+    });
 
     // Initial Load
     useEffect(() => {
@@ -75,13 +100,56 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
         return () => {
             if (unlistenFnRef.current) unlistenFnRef.current();
+            void forceKillPython();
         };
     }, [modelId]);
 
+    const isNearBottom = (): boolean => {
+        const container = historyContainerRef.current;
+        if (!container) return true;
+        const distance = container.scrollHeight - (container.scrollTop + container.clientHeight);
+        return distance < 80;
+    };
+
+    const scrollHistoryToBottom = (mode: "instant" | "slow" = "slow") => {
+        const behavior: ScrollBehavior = mode === "instant" ? "auto" : "smooth";
+        historyEndRef.current?.scrollIntoView({ behavior, block: "end" });
+    };
+
     // Scroll to bottom
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [history, currentFormInputs]);
+        if (stickToBottomRef.current) {
+            scrollHistoryToBottom("slow");
+        }
+    }, [history.length, currentFormInputs, processing, error]);
+
+    useEffect(() => {
+        const container = historyContainerRef.current;
+        if (!container) return;
+
+        const onScroll = () => {
+            stickToBottomRef.current = isNearBottom();
+        };
+
+        container.addEventListener("scroll", onScroll, { passive: true });
+        return () => {
+            container.removeEventListener("scroll", onScroll);
+        };
+    }, []);
+
+    useEffect(() => {
+        const content = historyContentRef.current;
+        if (!content || typeof ResizeObserver === "undefined") return;
+
+        const observer = new ResizeObserver(() => {
+            if (stickToBottomRef.current) {
+                scrollHistoryToBottom("instant");
+            }
+        });
+
+        observer.observe(content);
+        return () => observer.disconnect();
+    }, []);
 
     const handleOutput = (data: InteractiveOutput) => {
         if (data.error) {
@@ -91,7 +159,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         }
 
         if (data.outputs && data.outputs.length > 0) {
-            setHistory(prev => [...prev, { type: 'agent', content: data.outputs }]);
+            setHistory(prev => [...prev, buildTurn("agent", data.outputs)]);
         }
 
         if (data.next_inputs) {
@@ -109,28 +177,66 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         // Use 'status' or metadata to determine if done, but 'next_inputs' is the strongest signal for "your turn"
     };
 
-    const formatUserBubbleText = (inputs: ModelInputs): string => {
+    const looksLikePrimaryMessageField = (name: string): boolean =>
+        ["message", "prompt", "query", "input"].includes(name.toLowerCase());
+
+    const formatUserFieldValue = (value: any): string => {
+        if (value === undefined || value === null) return "";
+        if (typeof value === "string") return value;
+        if (typeof value === "number") return String(value);
+        if (typeof value === "boolean") return value ? "Yes" : "No";
+
+        if (Array.isArray(value)) {
+            if (value.length === 0) return "";
+            if (value.every((item) => item && typeof item === "object" && typeof item.name === "string")) {
+                return value.map((item) => item.name).join(", ");
+            }
+            return value.map((item) => formatUserFieldValue(item)).filter(Boolean).join(", ");
+        }
+
+        if (typeof value === "object") {
+            if (typeof value.name === "string" && value.name.length > 0) {
+                return value.name;
+            }
+            return "Provided";
+        }
+
+        return String(value);
+    };
+
+    const buildUserDisplay = (inputs: ModelInputs, formInputs: ModelInput[] | null): UserDisplay => {
         if (!inputs || typeof inputs !== "object") {
-            return String(inputs);
+            return { kind: "text", text: String(inputs) };
         }
 
-        // Common UX: show the message field like a normal chat.
-        const msg = inputs["message"];
-        if (typeof msg === "string" && msg.trim().length > 0) {
-            return msg;
+        const hasSchema = Array.isArray(formInputs) && formInputs.length > 0;
+        const fields = hasSchema
+            ? formInputs
+                .map((input) => {
+                    const raw = inputs[input.name];
+                    const value = formatUserFieldValue(raw);
+                    return value ? { label: input.label || input.name, value, name: input.name } : null;
+                })
+                .filter((item): item is { label: string; value: string; name: string } => !!item)
+            : Object.entries(inputs)
+                .map(([name, raw]) => {
+                    const value = formatUserFieldValue(raw);
+                    return value ? { label: name, value, name } : null;
+                })
+                .filter((item): item is { label: string; value: string; name: string } => !!item);
+
+        if (fields.length === 0) {
+            return { kind: "text", text: "" };
         }
 
-        // If it's a single field (e.g., username), show just its value.
-        const entries = Object.entries(inputs).filter(([, v]) => v !== undefined && v !== null && v !== "");
-        if (entries.length === 1) {
-            const [key, value] = entries[0];
-            return `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`;
+        if (fields.length === 1 && looksLikePrimaryMessageField(fields[0].name)) {
+            return { kind: "text", text: fields[0].value };
         }
 
-        // Fallback: key/value list
-        return entries
-            .map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
-            .join("\n");
+        return {
+            kind: "fields",
+            fields: fields.map(({ label, value }) => ({ label, value })),
+        };
     };
 
     const startTurn = async (inputs: ModelInputs) => {
@@ -142,7 +248,9 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         // Add user move to history (unless it's the invisible init)
         if (Object.keys(inputs).length > 0) {
             // Visualize user inputs? Maybe just JSON or a summary text for now.
-             setHistory(prev => [...prev, { type: 'user', content: inputs }]);
+            stickToBottomRef.current = true;
+            setHistory(prev => [...prev, buildTurn("user", buildUserDisplay(inputs, currentFormInputs))]);
+            requestAnimationFrame(() => scrollHistoryToBottom("slow"));
         }
 
         if (unlistenFnRef.current) unlistenFnRef.current();
@@ -181,9 +289,12 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         setCurrentFormInputs(null);
         setInputValues({});
         setProcessing(false);
+        stickToBottomRef.current = true;
+        requestAnimationFrame(() => scrollHistoryToBottom("instant"));
 
         setInitializing(true);
         try {
+            await forceKillPython();
             const warmRes = await warmModel(modelId);
             if (!warmRes.warmup) {
                 throw new Error(warmRes.error || "Failed to start agent process");
@@ -197,8 +308,21 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         }
     };
 
+    const handleBackToCatalog = async () => {
+        if (unlistenFnRef.current) {
+            try {
+                unlistenFnRef.current();
+            } finally {
+                unlistenFnRef.current = null;
+            }
+        }
+        await forceKillPython();
+        navigate('/');
+    };
+
     const handleSubmit = (e?: React.FormEvent) => {
         e?.preventDefault();
+        if (!canSubmitCurrentInputs) return;
         startTurn(inputValues);
     };
 
@@ -206,6 +330,69 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const handleInputChange = (name: string, value: any) => {
         setInputValues(prev => ({ ...prev, [name]: value }));
     };
+
+    const primaryTextInput = currentFormInputs?.find((input) =>
+        (input.type === "string" || input.type === "textarea") &&
+        ["message", "prompt", "query", "input"].includes(input.name.toLowerCase()),
+    ) ?? null;
+    const isSimpleComposer = !!currentFormInputs && currentFormInputs.length === 1 && !!primaryTextInput;
+    const messageValue = primaryTextInput ? (inputValues[primaryTextInput.name] as string) ?? "" : "";
+    const hasContentForSimpleComposer = messageValue.trim().length > 0;
+
+    const canSubmitCurrentInputs = !!currentFormInputs && currentFormInputs.every((input) => {
+        if (!input.required) return true;
+        const value = inputValues[input.name];
+        if (typeof value === "string") return value.trim().length > 0;
+        if (Array.isArray(value)) return value.length > 0;
+        return value !== undefined && value !== null && value !== "";
+    });
+
+    const formatTurnTime = (timestamp: number): string =>
+        new Date(timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+    const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+        if (!isSimpleComposer) return;
+        if (e.key !== "Enter" || e.shiftKey) return;
+        const target = e.target as HTMLElement;
+        const isTextArea = target.tagName === "TEXTAREA";
+        if (!isTextArea) return;
+        if (!hasContentForSimpleComposer || processing || initializing) return;
+        e.preventDefault();
+        handleSubmit();
+    };
+
+    const resizeComposerTextarea = () => {
+        const el = composerTextareaRef.current;
+        if (!el) return;
+        el.style.height = "0px";
+        el.style.height = `${Math.min(el.scrollHeight, 360)}px`;
+        el.style.overflowY = el.scrollHeight > 360 ? "auto" : "hidden";
+    };
+
+    useEffect(() => {
+        if (!isSimpleComposer) return;
+        resizeComposerTextarea();
+    }, [isSimpleComposer, messageValue]);
+
+    useEffect(() => {
+        const dock = composerDockRef.current;
+        if (!dock) return;
+
+        const updateHeight = () => {
+            setComposerDockHeight(Math.max(dock.offsetHeight + 20, 220));
+        };
+
+        updateHeight();
+
+        if (typeof ResizeObserver !== "undefined") {
+            const observer = new ResizeObserver(() => updateHeight());
+            observer.observe(dock);
+            return () => observer.disconnect();
+        }
+
+        window.addEventListener("resize", updateHeight);
+        return () => window.removeEventListener("resize", updateHeight);
+    }, [currentFormInputs, isSimpleComposer]);
 
     // Helper to group inputs (reuse existing components if possible, or simple list)
     // For now, flat list inside a fragment
@@ -217,7 +404,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                 data-tauri-drag-region={isMac ? "true" : undefined}
             >
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={handleBackToCatalog}
                     className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                     title="Back to catalog"
                 >
@@ -240,8 +427,12 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                 </div>
             </div>
             
-            <main className="flex-1 overflow-auto">
-                <div className="max-w-5xl mx-auto w-full px-4 py-6 pb-48">
+            <main ref={historyContainerRef} className="flex-1 overflow-auto">
+                <div
+                    ref={historyContentRef}
+                    className="max-w-4xl mx-auto w-full px-4 py-6"
+                    style={{ paddingBottom: `${composerDockHeight + 24}px` }}
+                >
 
                 {initializing && (
                     <div className="mb-6 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-300 px-4 py-3 flex items-center gap-2">
@@ -251,17 +442,40 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                 )}
 
                 {/* History */}
+                {!initializing && history.length === 0 && !error && (
+                    <div className="mb-6 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
+                        <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Start a conversation</h3>
+                        <p className="mt-2 text-slate-600 dark:text-slate-300">
+                            Ask for analysis and get rich outputs like plots directly in the thread.
+                        </p>
+                    </div>
+                )}
+
                 <div className="space-y-6">
                     {history.map((msg, idx) => (
-                        <div key={idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`${msg.type === 'user' ? 'max-w-[85%]' : 'w-full max-w-3xl min-w-0'} ${
+                        <div key={msg.id || idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`${msg.type === 'user' ? 'max-w-[85%]' : 'w-full max-w-4xl min-w-0'} ${
                                 msg.type === 'user' 
-                                    ? 'bg-blue-100 dark:bg-blue-900/30 rounded-xl p-4 shadow-sm border border-blue-200 dark:border-blue-900/40' 
-                                    : '' // Agent
+                                    ? 'rounded-[12px] px-4 py-3 shadow-sm ring-1 ring-slate-300/90 dark:ring-slate-500/80 bg-slate-100 dark:bg-slate-700/80' 
+                                    : ''
                             }`}>
+                                <div className={`mb-2 flex items-center ${msg.type === "agent" ? "justify-start" : "justify-end"}`}>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{formatTurnTime(msg.createdAt)}</div>
+                                </div>
                                 {msg.type === 'user' ? (
-                                    <div className="whitespace-pre-wrap text-sm text-slate-900 dark:text-slate-100">
-                                        {formatUserBubbleText(msg.content)}
+                                    <div className="text-sm text-slate-900 dark:text-slate-100">
+                                        {msg.content?.kind === "fields" ? (
+                                            <div className="space-y-1.5">
+                                                {msg.content.fields.map((field: { label: string; value: string }, fieldIdx: number) => (
+                                                    <div key={`${field.label}-${fieldIdx}`} className="flex items-start gap-2">
+                                                        <span className="text-slate-500 dark:text-slate-400">{field.label}:</span>
+                                                        <span className="whitespace-pre-wrap">{field.value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="whitespace-pre-wrap">{msg.content?.text ?? ""}</div>
+                                        )}
                                     </div>
                                 ) : (
                                     // Agent Output
@@ -283,63 +497,102 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                     )}
 
                     {processing && !currentFormInputs && (
-                        <div className="flex items-center gap-2 text-gray-500 animate-pulse">
-                            <RefreshCw className="animate-spin" size={16} />
-                            <span>Thinking...</span>
+                        <div className="w-full max-w-4xl">
+                            <div className="flex items-center gap-2 text-gray-500 animate-pulse px-1">
+                                <RefreshCw className="animate-spin" size={16} />
+                                <span>Assistant is thinking...</span>
+                            </div>
                         </div>
                     )}
                     
-                    <div ref={bottomRef} />
                 </div>
+                <div
+                    ref={historyEndRef}
+                    style={{
+                        height: 1,
+                        scrollMarginBottom: `${composerDockHeight + 24}px`,
+                    }}
+                />
 
                 </div>
             </main>
 
             {/* Input Area (sticky, always visible) */}
-            <div className="sticky bottom-0 z-40 border-t border-gray-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 backdrop-blur">
-                <div className="max-w-5xl mx-auto px-4 py-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+            <div
+                ref={composerDockRef}
+                className="sticky bottom-0 z-40 bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent dark:from-slate-900 dark:via-slate-900/95 dark:to-transparent"
+            >
+                <div className="max-w-4xl mx-auto px-4 py-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
                     {currentFormInputs ? (
-                        <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm p-4">
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">Your turn</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Fill the fields and submit</div>
-                            </div>
+                        isSimpleComposer && primaryTextInput ? (
+                            <form
+                                onSubmit={handleSubmit}
+                                onKeyDown={handleComposerKeyDown}
+                                className="mx-auto w-full rounded-[28px] bg-white/95 dark:bg-slate-800/95 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.7)] ring-1 ring-slate-200/80 dark:ring-slate-600/80 backdrop-blur px-4 pt-3 pb-3"
+                            >
+                                <textarea
+                                    ref={composerTextareaRef}
+                                    name={primaryTextInput.name}
+                                    value={messageValue}
+                                    required={primaryTextInput.required}
+                                    rows={2}
+                                    placeholder={primaryTextInput.label || "Message"}
+                                    onChange={(e) => {
+                                        handleInputChange(primaryTextInput.name, e.target.value);
+                                        requestAnimationFrame(resizeComposerTextarea);
+                                    }}
+                                    className="w-full min-h-[64px] max-h-[360px] resize-none border-0 bg-transparent px-1 py-1 text-[15px] leading-6 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none"
+                                />
+                                <div className="mt-2 flex items-center justify-between gap-3">
+                                    <div className="text-xs text-slate-500 dark:text-slate-400">Enter to send, Shift+Enter for newline</div>
+                                    <button
+                                        type="submit"
+                                        disabled={processing || initializing || !canSubmitCurrentInputs}
+                                        className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                                        title="Send message"
+                                    >
+                                        <Send size={16} />
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleSubmit} onKeyDown={handleComposerKeyDown} className="mx-auto w-full rounded-3xl ring-1 ring-slate-200/80 dark:ring-slate-700/80 bg-white/95 dark:bg-slate-800/95 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.7)] p-4 backdrop-blur">
+                                <div className="space-y-4">
+                                    {currentFormInputs.map((input) => {
+                                        const effectiveConstraints = resolveEffectiveConstraints(input, inputValues);
+                                        const mergedConstraints =
+                                            input.type === "textarea"
+                                                ? { ...effectiveConstraints, rows: effectiveConstraints?.rows ?? 6 }
+                                                : effectiveConstraints;
 
-                            <div className="space-y-4">
-                                {currentFormInputs.map((input) => {
-                                    const effectiveConstraints = resolveEffectiveConstraints(input, inputValues);
-                                    const mergedConstraints =
-                                        input.type === "textarea"
-                                            ? { ...effectiveConstraints, rows: effectiveConstraints?.rows ?? 6 }
-                                            : effectiveConstraints;
+                                        return (
+                                            <div key={input.name} className="w-full">
+                                                <ModelInputField
+                                                    input={input}
+                                                    value={inputValues[input.name]}
+                                                    constraints={mergedConstraints}
+                                                    onChange={handleInputChange}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
 
-                                    return (
-                                        <div key={input.name} className="w-full">
-                                            <ModelInputField
-                                                input={input}
-                                                value={inputValues[input.name]}
-                                                constraints={mergedConstraints}
-                                                onChange={handleInputChange}
-                                            />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={processing || initializing}
-                                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    <Send size={16} />
-                                    Submit
-                                </button>
-                            </div>
-                        </form>
+                                <div className="mt-4 flex items-center justify-end">
+                                    <button
+                                        type="submit"
+                                        disabled={processing || initializing || !canSubmitCurrentInputs}
+                                        className="inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                                    >
+                                        <Send size={16} />
+                                        Send
+                                    </button>
+                                </div>
+                            </form>
+                        )
                     ) : (
-                        <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm px-4 py-3 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between gap-4">
-                            <span>{processing ? "Waiting for agent…" : "Session ready. Waiting for the next prompt…"}</span>
+                        <div className="mx-auto w-full rounded-[24px] ring-1 ring-slate-200/70 dark:ring-slate-700/70 bg-white/90 dark:bg-slate-800/90 shadow-[0_12px_36px_-24px_rgba(15,23,42,0.8)] px-4 py-3 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between gap-4">
+                            <span>{processing ? "Waiting for assistant…" : "Waiting for assistant…"}</span>
                             <button
                                 type="button"
                                 onClick={restartSession}

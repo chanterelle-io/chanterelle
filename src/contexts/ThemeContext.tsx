@@ -2,20 +2,25 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 
 type ResolvedTheme = 'light' | 'dark';
 type ThemePreference = 'light' | 'dark' | 'system';
+export type TextSize = 'small' | 'medium' | 'large';
 
 interface ThemeContextValue {
   /** The effective theme after resolving 'system' */
   theme: ResolvedTheme;
   /** The raw user preference (light | dark | system) */
   preference: ThemePreference;
+  /** Text size preference */
+  textSize: TextSize;
   toggleTheme: () => void; // cycles light <-> dark only
   setPreference: (pref: ThemePreference) => void;
   setThemeDirect: (t: ResolvedTheme) => void; // internal / direct override
+  setTextSize: (size: TextSize) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'chanterelle.theme'; // stores only explicit light/dark. Absence => system
+const TEXT_SIZE_KEY = 'chanterelle.text_size';
 
 function detectSystem(): ResolvedTheme {
   if (typeof window === 'undefined') return 'light';
@@ -30,8 +35,17 @@ function getInitialPreference(): ThemePreference {
   return 'system';
 }
 
+function getInitialTextSize(): TextSize {
+  try {
+    const stored = localStorage.getItem(TEXT_SIZE_KEY);
+    if (stored === 'small' || stored === 'medium' || stored === 'large') return stored as TextSize;
+  } catch (_) { /* ignore */ }
+  return 'medium';
+}
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => getInitialPreference());
+  const [textSize, setTextSizeState] = useState<TextSize>(() => getInitialTextSize());
   const [theme, setTheme] = useState<ResolvedTheme>(() => {
     const pref = getInitialPreference();
     return pref === 'system' ? detectSystem() : pref;
@@ -41,6 +55,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const applyTheme = useCallback((resolved: ResolvedTheme) => {
     const root = document.documentElement;
     if (resolved === 'dark') root.classList.add('dark'); else root.classList.remove('dark');
+  }, []);
+
+  const applyTextSize = useCallback((size: TextSize) => {
+    const root = document.documentElement;
+    root.setAttribute('data-text-size', size);
   }, []);
 
   // Initialize media listener once
@@ -75,7 +94,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     applyTheme(resolved);
   }, [preference, applyTheme]);
 
+  // React to text size changes
+  useEffect(() => {
+    try { localStorage.setItem(TEXT_SIZE_KEY, textSize); } catch(_) {}
+    applyTextSize(textSize);
+  }, [textSize, applyTextSize]);
+
   const setPreference = useCallback((pref: ThemePreference) => setPreferenceState(pref), []);
+  const setTextSize = useCallback((size: TextSize) => setTextSizeState(size), []);
+
   const toggleTheme = useCallback(() => {
     // If user is on system, derive from currently resolved theme so toggle feels natural.
     setPreferenceState(prev => {
@@ -93,9 +120,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const value: ThemeContextValue = {
     theme,
     preference,
+    textSize,
     toggleTheme,
     setPreference,
-    setThemeDirect
+    setThemeDirect,
+    setTextSize
   };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional, TextIO
 # Protocol IO isolation: keep a dedicated handle to original stdout for JSON messages
 _PROTOCOL_OUT: Optional[TextIO] = None
 _IO_ISOLATED: bool = False
+_TURN_END_KEY = "_chanterelle_turn_end"
 
 
 def _setup_io_isolation() -> None:
@@ -189,14 +190,30 @@ if __name__ == "__main__":
 
                 if isinstance(result, types.GeneratorType):
                     for partial in result:
-                        _send_protocol_json(partial or {})
+                        payload = partial or {}
+                        _send_protocol_json(payload)
+                        # Hand control back to UI as soon as next inputs are requested.
+                        # This prevents extra generator yields from leaking past an input boundary.
+                        if isinstance(payload, dict) and (
+                            payload.get("next_inputs") is not None
+                            or payload.get("done") is True
+                        ):
+                            try:
+                                result.close()
+                            except Exception:
+                                pass
+                            break
                 else:
                     _send_protocol_json(result or {})
+                # Explicit request boundary marker so Rust can drain exactly one turn.
+                _send_protocol_json({_TURN_END_KEY: True})
 
             except json.JSONDecodeError as e:
                 _send_protocol_json({"error": "Invalid JSON", "details": str(e)})
+                _send_protocol_json({_TURN_END_KEY: True})
             except Exception as e:
                 _send_protocol_json(format_detailed_error(e, "main loop"))
+                _send_protocol_json({_TURN_END_KEY: True})
 
     except Exception as e:
         _send_protocol_json(format_detailed_error(e, "loading handler module"))
