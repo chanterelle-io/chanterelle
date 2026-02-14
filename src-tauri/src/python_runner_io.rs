@@ -3,6 +3,7 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 // use HashMap
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use tauri::Emitter;
 
 #[cfg(windows)]
@@ -86,6 +87,7 @@ pub async fn load_model(
             println!("Cleaning up existing Python process with PID: {} before starting new one", existing_pid);
             drop(existing_process); // This will trigger the Drop implementation
         }
+        state.python_pid.store(0, Ordering::SeqCst);
     }
     
     let model_dir = Path::new(projects_dir).join(project_name);
@@ -134,8 +136,13 @@ pub async fn load_model(
     }
     
     // Ensure the base handler files exist in the project directory
-    ensure_base_handler_exists(&model_dir)?;
-    ensure_interactive_handler_exists(&model_dir)?;
+    if is_interactive {
+        println!("Project is interactive. Ensuring interactive handler exists.");
+        ensure_interactive_handler_exists(&model_dir)?;
+    } else {
+        println!("Project is standard. Ensuring base handler exists.");
+        ensure_base_handler_exists(&model_dir)?;
+    }
     
     let handler_script = if is_interactive {
         "python_interactive_handler_base.py"
@@ -222,6 +229,7 @@ pub async fn load_model(
         stderr,
     };
     *state.python_process.lock().unwrap() = Some(python_process);
+    state.python_pid.store(process_id, Ordering::SeqCst);
 
     // Handshake already ensured the process is running and ready; proceed to model readiness check
 
@@ -356,12 +364,16 @@ pub async fn run_interactive(
                 // Try parsing to ensure validity before emitting
                 match serde_json::from_str::<serde_json::Value>(trimmed) {
                     Ok(json_val) => {
-                        window.emit("interactive:output", &json_val).map_err(|e| e.to_string())?;
-                        
-                                                if json_val.get("next_inputs").is_some() ||
-                                                     json_val.get("done").and_then(|b| b.as_bool()) == Some(true) {
-                             break;
+                        // Drain one full request/response turn using explicit Python boundary marker.
+                        if json_val
+                            .get("_chanterelle_turn_end")
+                            .and_then(|v| v.as_bool())
+                            == Some(true)
+                        {
+                            break;
                         }
+
+                        window.emit("interactive:output", &json_val).map_err(|e| e.to_string())?;
                     },
                     Err(e) => {
                         println!("Error parsing interactive output: {}", e);
@@ -621,11 +633,45 @@ pub async fn cleanup_python_process(state: tauri::State<'_, AppState>) -> Result
         
         // The Drop implementation will handle the actual cleanup
         drop(process);
+        state.python_pid.store(0, Ordering::SeqCst);
         
         println!("Python process cleanup completed");
         Ok(())
     } else {
         println!("No Python process to cleanup");
+        state.python_pid.store(0, Ordering::SeqCst);
         Ok(())
     }
+}
+
+pub async fn force_kill_python_process(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let pid = state.python_pid.load(Ordering::SeqCst);
+    if pid == 0 {
+        return Ok(false);
+    }
+
+    println!("Force-killing Python process with PID: {}", pid);
+
+    #[cfg(unix)]
+    let status = Command::new("kill")
+        .arg("-9")
+        .arg(pid.to_string())
+        .status()
+        .map_err(|e| format!("Failed to run kill for PID {}: {}", pid, e))?;
+
+    #[cfg(windows)]
+    let status = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .status()
+        .map_err(|e| format!("Failed to run taskkill for PID {}: {}", pid, e))?;
+
+    let killed = status.success();
+    if killed {
+        state.python_pid.store(0, Ordering::SeqCst);
+        if let Ok(mut guard) = state.python_process.try_lock() {
+            let _ = guard.take();
+        }
+    }
+
+    Ok(killed)
 }

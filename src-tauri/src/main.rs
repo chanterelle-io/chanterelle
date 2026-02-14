@@ -3,6 +3,7 @@
 
 // src-tauri/src/main.rs
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use tauri::Manager;
 
 mod projects;
@@ -248,6 +249,13 @@ async fn cleanup_python_process(
     python_runner_io::cleanup_python_process(state).await
 }
 
+#[tauri::command]
+async fn force_kill_python_process(
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    python_runner_io::force_kill_python_process(state).await
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -278,6 +286,7 @@ fn main() {
                         println!("Window closing - cleaning up Python process with PID: {}", pid);
                         // Drop will handle the cleanup
                         drop(process);
+                        state.python_pid.store(0, Ordering::SeqCst);
                         println!("Python process cleanup completed on window close");
                     }
                 }
@@ -295,6 +304,7 @@ fn main() {
             set_projects_directory,
             open_directory_dialog,
             cleanup_python_process,
+            force_kill_python_process,
             submit_feedback,
             get_feedback_history,
             delete_feedback,

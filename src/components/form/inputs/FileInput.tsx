@@ -41,7 +41,7 @@ export const FileInput: React.FC<BaseInputProps> = ({ input, value, constraints,
                         console.error('Error opening file dialog:', error);
                     }
                 }}
-                className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 w-full text-left bg-white dark:bg-slate-700 hover:bg-gray-50 dark:hover:bg-slate-600 dark:text-gray-100"
+                className="w-full h-12 rounded-2xl border border-slate-300/90 dark:border-slate-600 px-4 text-left bg-white/95 dark:bg-slate-700/90 hover:bg-gray-50 dark:hover:bg-slate-600 dark:text-gray-100 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-500"
             >
                 {value ? 'Change file...' : 'Select file...'}
             </button>

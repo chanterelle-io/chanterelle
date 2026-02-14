@@ -190,7 +190,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
                         ))}
                     </select>
                     {section.dropdown.options.find(opt => opt.id === selectedOption)?.description && (
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             {section.dropdown.options.find(opt => opt.id === selectedOption)?.description}
                         </p>
                     )}
@@ -210,7 +210,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
             )}
 
             {section.comment && (
-                <div className="text-m text-gray-800 mt-3">{section.comment}</div>
+                <div className="text-m text-gray-800 dark:text-gray-300 mt-3">{section.comment}</div>
             )}
         </div>
     )
@@ -256,7 +256,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
                             </h4>
                         )}
                         {item.description && (
-                            <p className="text-sm text-gray-600">{item.description}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
                         )}
                     </div>
                 )}
@@ -264,7 +264,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
                     {DataComponent && <DataComponent { ...item } />}
                 </div>
                 {item.comment && (
-                    <div className="text-sm italic text-gray-800">{item.comment}</div>
+                    <div className="text-sm italic text-gray-800 dark:text-gray-300">{item.comment}</div>
                 )}
             </div>
         );
