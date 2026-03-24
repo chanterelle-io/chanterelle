@@ -38,6 +38,8 @@ export interface SectionType {
     dropdown?: DropdownConfig; // dropdown configuration
     subsections?: Record<string, Subsection>; // New subsections for dropdown content
     comment?: string;
+    collapsible?: boolean;
+    collapsed?: boolean;
 }
 
 // // Item type for all insight items
@@ -163,14 +165,8 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
         }
     };
 
-    return (
-        <div className={`${hasTitle ? `p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}` : ''}`}>
-            {section.title && (
-                <div className={headingClass}>
-                    <h2 className="flex-1">{section.title}</h2>
-                </div>
-            )}
-            
+    const sectionContent = (
+        <>
             {section.description && (
                 <p className="mb-3 text-gray-600 dark:text-gray-300">{section.description}</p>
             )}
@@ -199,11 +195,11 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
 
             {/* Render items */}
             {itemsToRender.length > 0 && (
-                <div 
+                <div
                     className={`grid gap-4`}
                     style={{ gridTemplateColumns: `repeat(${itemsPerRow}, 1fr)` }}
                 >
-                    {itemsToRender.map((item, index) => 
+                    {itemsToRender.map((item, index) =>
                         renderSectionOrItem(item, level, sectionId, index)
                     )}
                 </div>
@@ -211,6 +207,31 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
 
             {section.comment && (
                 <div className="text-m text-gray-800 dark:text-gray-300 mt-3">{section.comment}</div>
+            )}
+        </>
+    );
+
+    return (
+        <div className={`${hasTitle ? `p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}` : ''}`}>
+            {section.collapsible && section.title ? (
+                <details open={!section.collapsed} className="group">
+                    <summary className="list-none cursor-pointer select-none">
+                        <div className={headingClass}>
+                            <span className="mr-2 text-slate-500 transition-transform group-open:rotate-90">{">"}</span>
+                            <h2 className="flex-1">{section.title}</h2>
+                        </div>
+                    </summary>
+                    {sectionContent}
+                </details>
+            ) : (
+                <>
+                    {section.title && (
+                        <div className={headingClass}>
+                            <h2 className="flex-1">{section.title}</h2>
+                        </div>
+                    )}
+                    {sectionContent}
+                </>
             )}
         </div>
     )
@@ -244,27 +265,54 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         // const itemData = item as ItemType;
         const IconComponent = componentRegistry[item.type]?.icon;
         const DataComponent = componentRegistry[item.type]?.Component;
-        
+        const defaultCollapsibleTypes = new Set<string>([]);
+        const isCollapsible = item.collapsible ?? defaultCollapsibleTypes.has(item.type);
+        const startsCollapsed = item.collapsed ?? isCollapsible;
+        const summaryLabel = item.title || item.description || item.type.replace(/_/g, " ");
+
         return (
             <div key={localId} id={itemId} className="" data-toc>
-                {(item.title || item.description) && (
-                    <div className="mb-3">
-                        {item.title && (
+                {isCollapsible ? (
+                    <details open={!startsCollapsed} className="group rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 p-3">
+                        <summary className="list-none cursor-pointer select-none">
                             <h4 className="text-lg font-semibold mb-1 flex items-center">
+                                <span className="mr-2 text-slate-500 transition-transform group-open:rotate-90">{">"}</span>
                                 {IconComponent && <IconComponent />}
-                                {item.title}
+                                <span className="capitalize">{summaryLabel}</span>
                             </h4>
+                            {item.description && (
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
+                            )}
+                        </summary>
+                        <div className="mt-3">
+                            {DataComponent && <DataComponent { ...item } />}
+                        </div>
+                        {item.comment && (
+                            <div className="text-sm italic text-gray-800 dark:text-gray-300 mt-2">{item.comment}</div>
                         )}
-                        {item.description && (
-                            <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
+                    </details>
+                ) : (
+                    <>
+                        {(item.title || item.description) && (
+                            <div className="mb-3">
+                                {item.title && (
+                                    <h4 className="text-lg font-semibold mb-1 flex items-center">
+                                        {IconComponent && <IconComponent />}
+                                        {item.title}
+                                    </h4>
+                                )}
+                                {item.description && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
+                                )}
+                            </div>
                         )}
-                    </div>
-                )}
-                <div className="">
-                    {DataComponent && <DataComponent { ...item } />}
-                </div>
-                {item.comment && (
-                    <div className="text-sm italic text-gray-800 dark:text-gray-300">{item.comment}</div>
+                        <div className="">
+                            {DataComponent && <DataComponent { ...item } />}
+                        </div>
+                        {item.comment && (
+                            <div className="text-sm italic text-gray-800 dark:text-gray-300">{item.comment}</div>
+                        )}
+                    </>
                 )}
             </div>
         );

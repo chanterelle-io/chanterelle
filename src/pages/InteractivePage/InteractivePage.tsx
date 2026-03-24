@@ -11,6 +11,7 @@ import { Send, RefreshCw, AlertCircle, ArrowLeft, RotateCcw } from "lucide-react
 import { warmModel } from "../../services/apis/warmModel";
 import { resolveEffectiveConstraints } from "../../utils/formUtils";
 import { forceKillPython } from "../../services/apis/forceKillPython";
+import { stopInteractive } from "../../services/apis/stopInteractive";
 // import { getModelMeta } from "../../services/apis/getModelMeta";
 // We reuse ModelMeta type for interactive definition if compatible?
 // Yes, we will just use it to type the project info we fetched.
@@ -24,6 +25,8 @@ type ConversationTurn = {
     type: "user" | "agent";
     content: any;
     createdAt: number;
+    responseId?: string;
+    completedAt?: number;
 };
 
 type UserDisplay =
@@ -44,10 +47,13 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     
     // UI State
     const [processing, setProcessing] = useState(false);
+    const [stopping, setStopping] = useState(false);
+    const [wasStopped, setWasStopped] = useState(false);
     const [initializing, setInitializing] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [composerDockHeight, setComposerDockHeight] = useState(220);
     const unlistenFnRef = useRef<Function | null>(null);
+    const currentRequestIdRef = useRef<string | null>(null);
     const historyContainerRef = useRef<HTMLElement>(null);
     const historyContentRef = useRef<HTMLDivElement>(null);
     const historyEndRef = useRef<HTMLDivElement>(null);
@@ -55,11 +61,13 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
     const composerDockRef = useRef<HTMLDivElement>(null);
 
-    const buildTurn = (type: "user" | "agent", content: any): ConversationTurn => ({
+    const buildTurn = (type: "user" | "agent", content: any, responseId?: string, completedAt?: number): ConversationTurn => ({
         id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         type,
         content,
         createdAt: Date.now(),
+        responseId,
+        completedAt,
     });
 
     // Initial Load
@@ -100,6 +108,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
         return () => {
             if (unlistenFnRef.current) unlistenFnRef.current();
+            currentRequestIdRef.current = null;
             void forceKillPython();
         };
     }, [modelId]);
@@ -142,24 +151,85 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         if (!content || typeof ResizeObserver === "undefined") return;
 
         const observer = new ResizeObserver(() => {
-            if (stickToBottomRef.current) {
+            // Keep auto-pinning only while the assistant is actively producing output.
+            // Otherwise, user-driven layout changes (e.g. expanding/collapsing items)
+            // should not force-scroll to the bottom.
+            if (stickToBottomRef.current && (processing || initializing || stopping)) {
                 scrollHistoryToBottom("instant");
             }
         });
 
         observer.observe(content);
         return () => observer.disconnect();
-    }, []);
+    }, [processing, initializing, stopping]);
 
     const handleOutput = (data: InteractiveOutput) => {
-        if (data.error) {
-            setError(data.error);
-            setProcessing(false);
+        if (data.request_id && currentRequestIdRef.current && data.request_id !== currentRequestIdRef.current) {
             return;
         }
 
-        if (data.outputs && data.outputs.length > 0) {
-            setHistory(prev => [...prev, buildTurn("agent", data.outputs)]);
+        if (data.stopped) {
+            setProcessing(false);
+            setStopping(false);
+            setCurrentFormInputs(null);
+            setWasStopped(true);
+            return;
+        }
+
+        if (data.error) {
+            setError(data.error);
+            setProcessing(false);
+            setStopping(false);
+            return;
+        }
+
+        const outputSections = data.outputs;
+        const assistantDone =
+            data.event_type === "final" ||
+            data.event_type === "prompt" ||
+            data.done === true ||
+            !!data.next_inputs;
+
+        if (outputSections && outputSections.length > 0) {
+            const responseId = data.response_id;
+            const shouldAppend = data.append !== false;
+
+            setHistory((prev) => {
+                if (!responseId) {
+                    return [...prev, buildTurn("agent", outputSections, undefined, assistantDone ? Date.now() : undefined)];
+                }
+
+                const existingIndex = prev.findIndex(
+                    (turn) => turn.type === "agent" && turn.responseId === responseId,
+                );
+
+                if (existingIndex === -1) {
+                    return [...prev, buildTurn("agent", outputSections, responseId, assistantDone ? Date.now() : undefined)];
+                }
+
+                const next = [...prev];
+                const existing = next[existingIndex];
+                const existingSections = Array.isArray(existing.content) ? existing.content : [];
+                next[existingIndex] = {
+                    ...existing,
+                    content: shouldAppend ? [...existingSections, ...outputSections] : outputSections,
+                    completedAt: assistantDone ? Date.now() : existing.completedAt,
+                };
+                return next;
+            });
+        } else if (assistantDone && data.response_id) {
+            setHistory((prev) => {
+                const existingIndex = prev.findIndex(
+                    (turn) => turn.type === "agent" && turn.responseId === data.response_id,
+                );
+                if (existingIndex === -1) return prev;
+                const next = [...prev];
+                next[existingIndex] = {
+                    ...next[existingIndex],
+                    completedAt: Date.now(),
+                };
+                return next;
+            });
         }
 
         if (data.next_inputs) {
@@ -172,6 +242,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
             });
             setInputValues(defaults);
             setProcessing(false); // Turn is ready for user input
+            setStopping(false);
         }
         
         // Use 'status' or metadata to determine if done, but 'next_inputs' is the strongest signal for "your turn"
@@ -204,6 +275,13 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         return String(value);
     };
 
+    const resolveInputKey = (input: ModelInput): string => {
+        const fromName = input.name?.trim();
+        if (fromName) return fromName;
+        const fromLabel = (input.label || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+        return fromLabel || "choice";
+    };
+
     const buildUserDisplay = (inputs: ModelInputs, formInputs: ModelInput[] | null): UserDisplay => {
         if (!inputs || typeof inputs !== "object") {
             return { kind: "text", text: String(inputs) };
@@ -213,9 +291,10 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         const fields = hasSchema
             ? formInputs
                 .map((input) => {
-                    const raw = inputs[input.name];
+                    const key = resolveInputKey(input);
+                    const raw = inputs[input.name] ?? inputs[key];
                     const value = formatUserFieldValue(raw);
-                    return value ? { label: input.label || input.name, value, name: input.name } : null;
+                    return value ? { label: input.label || input.name || key, value, name: key } : null;
                 })
                 .filter((item): item is { label: string; value: string; name: string } => !!item)
             : Object.entries(inputs)
@@ -242,8 +321,12 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const startTurn = async (inputs: ModelInputs) => {
         if (!modelId) return;
         setProcessing(true);
+        setStopping(false);
+        setWasStopped(false);
         setError(null);
         setCurrentFormInputs(null); // Hide form while thinking
+        const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        currentRequestIdRef.current = requestId;
 
         // Add user move to history (unless it's the invisible init)
         if (Object.keys(inputs).length > 0) {
@@ -256,11 +339,12 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         if (unlistenFnRef.current) unlistenFnRef.current();
 
         try {
-            const unlisten = await invokeInteractive(modelId, inputs, handleOutput);
+            const unlisten = await invokeInteractive(modelId, inputs, handleOutput, requestId);
             unlistenFnRef.current = unlisten;
         } catch (e: any) {
             setError(e.toString());
             setProcessing(false);
+            setStopping(false);
         }
     };
 
@@ -289,6 +373,8 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         setCurrentFormInputs(null);
         setInputValues({});
         setProcessing(false);
+        setWasStopped(false);
+        currentRequestIdRef.current = null;
         stickToBottomRef.current = true;
         requestAnimationFrame(() => scrollHistoryToBottom("instant"));
 
@@ -316,8 +402,38 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                 unlistenFnRef.current = null;
             }
         }
+        currentRequestIdRef.current = null;
         await forceKillPython();
         navigate('/');
+    };
+
+    const handleStopExecution = async () => {
+        if (!processing || stopping) return;
+        setStopping(true);
+
+        const requestId = currentRequestIdRef.current || undefined;
+        const softStopped = await Promise.race<boolean>([
+            stopInteractive(requestId),
+            new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 800)),
+        ]);
+
+        if (!softStopped) {
+            await forceKillPython();
+        }
+
+        if (unlistenFnRef.current) {
+            try {
+                unlistenFnRef.current();
+            } finally {
+                unlistenFnRef.current = null;
+            }
+        }
+        currentRequestIdRef.current = null;
+        setProcessing(false);
+        setStopping(false);
+        setCurrentFormInputs(null);
+        setError(null);
+        setWasStopped(true);
     };
 
     const handleSubmit = (e?: React.FormEvent) => {
@@ -333,11 +449,50 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
     const primaryTextInput = currentFormInputs?.find((input) =>
         (input.type === "string" || input.type === "textarea") &&
-        ["message", "prompt", "query", "input"].includes(input.name.toLowerCase()),
+        ["message", "prompt", "query", "input"].includes((input.name || "").toLowerCase()),
     ) ?? null;
+    const quickChoiceInput = currentFormInputs?.length === 1 &&
+        (currentFormInputs[0].type === "button" || currentFormInputs[0].type === "yes_no")
+        ? currentFormInputs[0]
+        : null;
     const isSimpleComposer = !!currentFormInputs && currentFormInputs.length === 1 && !!primaryTextInput;
+    const isQuickChoiceComposer = !!quickChoiceInput;
     const messageValue = primaryTextInput ? (inputValues[primaryTextInput.name] as string) ?? "" : "";
     const hasContentForSimpleComposer = messageValue.trim().length > 0;
+
+    const quickChoiceOptions = (() => {
+        if (!quickChoiceInput) return [];
+        if (quickChoiceInput.type === "yes_no") {
+            return [
+                {
+                    label: quickChoiceInput.constraints?.yes_label || "Yes",
+                    value: quickChoiceInput.constraints?.yes_value !== undefined ? quickChoiceInput.constraints.yes_value : true,
+                },
+                {
+                    label: quickChoiceInput.constraints?.no_label || "No",
+                    value: quickChoiceInput.constraints?.no_value !== undefined ? quickChoiceInput.constraints.no_value : false,
+                },
+            ];
+        }
+
+        const options = quickChoiceInput.constraints?.options;
+        if (!Array.isArray(options) || options.length === 0) {
+            return [{ label: "Continue", value: true }];
+        }
+        if (typeof options[0] === "string") {
+            return (options as string[]).map((opt) => ({ label: opt, value: opt }));
+        }
+        return (options as Array<{ value: string; label?: string }>).map((opt) => ({
+            label: opt.label || opt.value || "Option",
+            value: opt.value,
+        }));
+    })();
+
+    const handleQuickChoiceSubmit = (value: any) => {
+        if (!quickChoiceInput || processing || initializing) return;
+        const inputKey = resolveInputKey(quickChoiceInput);
+        startTurn({ [inputKey]: value });
+    };
 
     const canSubmitCurrentInputs = !!currentFormInputs && currentFormInputs.every((input) => {
         if (!input.required) return true;
@@ -392,7 +547,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
         window.addEventListener("resize", updateHeight);
         return () => window.removeEventListener("resize", updateHeight);
-    }, [currentFormInputs, isSimpleComposer]);
+    }, [currentFormInputs, isSimpleComposer, isQuickChoiceComposer]);
 
     // Helper to group inputs (reuse existing components if possible, or simple list)
     // For now, flat list inside a fragment
@@ -416,6 +571,16 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                 </h2>
 
                 <div className="flex items-center">
+                    {processing && (
+                        <button
+                            onClick={handleStopExecution}
+                            disabled={initializing || stopping}
+                            className="mr-2 px-2 border border-red-500 flex items-center text-red-600 hover:text-red-500 dark:hover:text-red-400 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                            title="Stop Execution"
+                        >
+                            {stopping ? "Stopping..." : "Stop"}
+                        </button>
+                    )}
                     <button
                         onClick={restartSession}
                         disabled={initializing || processing}
@@ -459,9 +624,11 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                                     ? 'rounded-[12px] px-4 py-3 shadow-sm ring-1 ring-slate-300/90 dark:ring-slate-500/80 bg-slate-100 dark:bg-slate-700/80' 
                                     : ''
                             }`}>
-                                <div className={`mb-2 flex items-center ${msg.type === "agent" ? "justify-start" : "justify-end"}`}>
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">{formatTurnTime(msg.createdAt)}</div>
-                                </div>
+                                {msg.type === "user" && (
+                                    <div className="mb-2 flex items-center justify-end">
+                                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{formatTurnTime(msg.createdAt)}</div>
+                                    </div>
+                                )}
                                 {msg.type === 'user' ? (
                                     <div className="text-sm text-slate-900 dark:text-slate-100">
                                         {msg.content?.kind === "fields" ? (
@@ -483,6 +650,13 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                                         {Array.isArray(msg.content) && msg.content.map((section: any, sIdx: number) => (
                                             <Section key={sIdx} section={section} index={sIdx} />
                                         ))}
+                                    </div>
+                                )}
+                                {msg.type === "agent" && msg.completedAt && (
+                                    <div className="mt-2 flex items-center justify-start">
+                                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                            {formatTurnTime(msg.completedAt)}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -524,7 +698,31 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
             >
                 <div className="max-w-4xl mx-auto px-4 py-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
                     {currentFormInputs ? (
-                        isSimpleComposer && primaryTextInput ? (
+                        isQuickChoiceComposer && quickChoiceInput ? (
+                            <div className="mx-auto w-full rounded-[28px] bg-white/95 dark:bg-slate-800/95 shadow-[0_14px_40px_-24px_rgba(15,23,42,0.7)] ring-1 ring-slate-200/80 dark:ring-slate-600/80 backdrop-blur px-4 pt-3 pb-3">
+                                <div className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-3">
+                                    {quickChoiceInput.label || quickChoiceInput.name || "Choose an option"}
+                                </div>
+                                {quickChoiceInput.description && (
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                                        {quickChoiceInput.description}
+                                    </div>
+                                )}
+                                <div className="flex flex-wrap gap-2">
+                                    {quickChoiceOptions.map((option, index) => (
+                                        <button
+                                            key={`${String(option.value)}-${index}`}
+                                            type="button"
+                                            disabled={processing || initializing}
+                                            onClick={() => handleQuickChoiceSubmit(option.value)}
+                                            className="inline-flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-full hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : isSimpleComposer && primaryTextInput ? (
                             <form
                                 onSubmit={handleSubmit}
                                 onKeyDown={handleComposerKeyDown}
@@ -592,7 +790,13 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                         )
                     ) : (
                         <div className="mx-auto w-full rounded-[24px] ring-1 ring-slate-200/70 dark:ring-slate-700/70 bg-white/90 dark:bg-slate-800/90 shadow-[0_12px_36px_-24px_rgba(15,23,42,0.8)] px-4 py-3 text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between gap-4">
-                            <span>{processing ? "Waiting for assistant…" : "Waiting for assistant…"}</span>
+                            <span>
+                                {processing
+                                    ? "Waiting for assistant…"
+                                    : wasStopped
+                                        ? "Stopped. Restart the session to try again."
+                                        : "Waiting for assistant…"}
+                            </span>
                             <button
                                 type="button"
                                 onClick={restartSession}

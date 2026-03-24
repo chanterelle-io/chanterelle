@@ -21,7 +21,7 @@ export interface LineChartLine {
     };
 }
 export interface LineChartPoint {
-    x: number;
+    x: number | string;
     y: number;
 }
 export interface AxisConfig {
@@ -88,12 +88,12 @@ export const LineChartComponent: React.FC<LineChartItem> = ({ data, full_width }
     // Generate chart data from valid lines
     const chartData = {
         labels: validLines[0]?.points
-            .filter(p => p && typeof p.x === 'number' && typeof p.y === 'number')
+            .filter(p => p && p.x != null && typeof p.y === 'number')
             .map((p) => p.x),
         datasets: validLines.map((line, index) => ({
             label: line.id || `Line ${index + 1}`,
             data: line.points
-                .filter(p => p && typeof p.x === 'number' && typeof p.y === 'number')
+                .filter(p => p && p.x != null && typeof p.y === 'number')
                 .map((p) => p.y),
             color: line.style?.color || "#1976d2",
             borderColor: line.style?.color || "#1976d2",
