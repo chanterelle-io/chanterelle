@@ -59,6 +59,7 @@ async fn invoke_model(
 async fn invoke_interactive(
     project_name: String,
     inputs: HashMap<String, serde_json::Value>,
+    request_id: Option<String>,
     window: tauri::Window,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -66,7 +67,15 @@ async fn invoke_interactive(
         let settings = state.settings.lock().unwrap();
         settings.projects_directory.clone()
     };
-    python_runner_io::run_interactive(&projects_dir, &project_name, inputs, window, state).await
+    python_runner_io::run_interactive(&projects_dir, &project_name, inputs, request_id, window, state).await
+}
+
+#[tauri::command]
+async fn stop_interactive(
+    request_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    python_runner_io::stop_interactive(request_id, state).await
 }
 
 // Settings commands
@@ -300,6 +309,7 @@ fn main() {
             warmup_model,
             invoke_model,
             invoke_interactive,
+            stop_interactive,
             get_settings,
             set_projects_directory,
             open_directory_dialog,

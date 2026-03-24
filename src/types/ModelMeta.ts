@@ -15,6 +15,11 @@ export interface ModelInputConstraint {
     // For file input
     extensions?: string[];
     multiple?: boolean;
+    // For yes/no button input
+    yes_label?: string;
+    no_label?: string;
+    yes_value?: any;
+    no_value?: any;
 }
 
 // Model Input Dependency Mapping
@@ -28,7 +33,7 @@ export interface ModelInputDependencyMapping {
 export interface ModelInput {
     name: string;
     label: string;
-    type: 'float' | 'int' | 'string' | 'category' | 'boolean' | 'textarea' | 'file';
+    type: 'float' | 'int' | 'string' | 'category' | 'boolean' | 'textarea' | 'file' | 'button' | 'yes_no';
     unit?: string;
     required?: boolean;
     description?: string;
@@ -112,4 +117,3 @@ export interface ModelMeta {
     python_environment?: PythonEnvironment;
     allow_feedback?: boolean;
 }
-

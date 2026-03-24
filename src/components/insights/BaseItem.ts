@@ -4,6 +4,8 @@ export interface BaseItem {
     title?: string;
     description?: string;
     comment?: string;
+    collapsible?: boolean;
+    collapsed?: boolean;
     /**
      * Optional layout hint for renderers (e.g., charts) to use the full available width.
      * When omitted/false, components may apply a max-width for better readability.

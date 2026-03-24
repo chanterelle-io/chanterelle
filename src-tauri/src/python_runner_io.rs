@@ -340,6 +340,7 @@ pub async fn run_interactive(
     _projects_dir: &str,
     _project_name: &str,
     inputs: HashMap<String, serde_json::Value>,
+    request_id: Option<String>,
     window: tauri::Window,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -349,7 +350,19 @@ pub async fn run_interactive(
     let process = guard.as_mut().ok_or("Python process not started")?;
     validate_process_alive(process)?;
     
-    let inputs_json = serde_json::to_string(&inputs).map_err(|e| e.to_string())?;
+    let request_payload = if inputs.is_empty() {
+        serde_json::json!({
+            "command": "initialize",
+            "request_id": request_id
+        })
+    } else {
+        serde_json::json!({
+            "command": "on_input",
+            "inputs": inputs,
+            "request_id": request_id
+        })
+    };
+    let inputs_json = serde_json::to_string(&request_payload).map_err(|e| e.to_string())?;
     send_request_to_python(process, &inputs_json)?;
     
     // Loop to read streaming responses
@@ -384,6 +397,46 @@ pub async fn run_interactive(
         }
     }
     Ok(())
+}
+
+pub async fn stop_interactive(
+    request_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    // Try cooperative cancel first if we can lock immediately.
+    if let Ok(mut guard) = state.python_process.try_lock() {
+        if let Some(process) = guard.as_mut() {
+            let request = serde_json::json!({
+                "command": "cancel",
+                "request_id": request_id
+            });
+            let request_json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+            if send_request_to_python(process, &request_json).is_ok() {
+                return Ok(true);
+            }
+        }
+    }
+
+    // If cooperative cancel cannot be delivered (e.g., mutex busy), try a soft OS-level terminate.
+    let pid = state.python_pid.load(Ordering::SeqCst);
+    if pid == 0 {
+        return Ok(false);
+    }
+
+    #[cfg(unix)]
+    let status = Command::new("kill")
+        .arg("-15")
+        .arg(pid.to_string())
+        .status()
+        .map_err(|e| format!("Failed to run soft kill for PID {}: {}", pid, e))?;
+
+    #[cfg(windows)]
+    let status = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T"])
+        .status()
+        .map_err(|e| format!("Failed to run soft taskkill for PID {}: {}", pid, e))?;
+
+    Ok(status.success())
 }
 
 pub async fn run_model(

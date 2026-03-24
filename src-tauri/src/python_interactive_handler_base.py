@@ -14,6 +14,9 @@ from typing import Any, Dict, Optional, TextIO
 _PROTOCOL_OUT: Optional[TextIO] = None
 _IO_ISOLATED: bool = False
 _TURN_END_KEY = "_chanterelle_turn_end"
+_RESPONSE_SEQ = 0
+_CANCELED_REQUEST_IDS = set()
+_CANCEL_ALL = False
 
 
 def _setup_io_isolation() -> None:
@@ -53,6 +56,42 @@ def _send_protocol_json(obj: Dict[str, Any]) -> None:
     out = _PROTOCOL_OUT or sys.__stdout__
     out.write(json.dumps(obj, separators=(",", ":")) + "\n")
     out.flush()
+
+
+def _next_response_id() -> str:
+    global _RESPONSE_SEQ
+    _RESPONSE_SEQ += 1
+    return f"r{_RESPONSE_SEQ}"
+
+
+def _normalize_event_payload(
+    payload: Any,
+    response_id: str,
+    request_id: Optional[str],
+    default_event_type: str,
+    default_append: bool,
+) -> Dict[str, Any]:
+    if isinstance(payload, dict):
+        event = dict(payload)
+    else:
+        event = {"data": payload}
+
+    event["response_id"] = event.get("response_id") or response_id
+    if request_id is not None and "request_id" not in event:
+        event["request_id"] = request_id
+
+    if "event_type" not in event:
+        if event.get("next_inputs") is not None:
+            event["event_type"] = "prompt"
+        elif event.get("done") is True:
+            event["event_type"] = "final"
+        else:
+            event["event_type"] = default_event_type
+
+    if "append" not in event:
+        event["append"] = default_append
+
+    return event
 
 
 def load_user_handler_module(handler_path: str):
@@ -179,6 +218,20 @@ if __name__ == "__main__":
                     _send_protocol_json({"pong": True, "status": "ready"})
                     continue
 
+                # Cooperative stop request
+                if isinstance(data, dict) and data.get("command") in {"cancel", "stop"}:
+                    req_id = data.get("request_id")
+                    if req_id is not None:
+                        _CANCELED_REQUEST_IDS.add(str(req_id))
+                    else:
+                        _CANCEL_ALL = True
+                    _send_protocol_json({
+                        "status": "stopping",
+                        "stopping": True,
+                        "request_id": req_id,
+                    })
+                    continue
+
                 # Back-compat: Rust may send plain inputs without an explicit command.
                 if isinstance(data, dict) and "command" not in data:
                     if len(data) == 0:
@@ -186,11 +239,36 @@ if __name__ == "__main__":
                     else:
                         data = {"command": "on_input", "inputs": data}
 
+                response_id = _next_response_id()
+                request_id = data.get("request_id") if isinstance(data, dict) else None
                 result = handler.handle_message(data if isinstance(data, dict) else {"command": "on_input", "inputs": data})
 
                 if isinstance(result, types.GeneratorType):
                     for partial in result:
-                        payload = partial or {}
+                        canceled = _CANCEL_ALL or (
+                            request_id is not None and str(request_id) in _CANCELED_REQUEST_IDS
+                        )
+                        if canceled:
+                            try:
+                                result.close()
+                            except Exception:
+                                pass
+                            _send_protocol_json({
+                                "response_id": response_id,
+                                "request_id": request_id,
+                                "event_type": "final",
+                                "append": False,
+                                "stopped": True,
+                            })
+                            break
+
+                        payload = _normalize_event_payload(
+                            partial or {},
+                            response_id=response_id,
+                            request_id=request_id,
+                            default_event_type="partial",
+                            default_append=True,
+                        )
                         _send_protocol_json(payload)
                         # Hand control back to UI as soon as next inputs are requested.
                         # This prevents extra generator yields from leaking past an input boundary.
@@ -204,7 +282,19 @@ if __name__ == "__main__":
                                 pass
                             break
                 else:
-                    _send_protocol_json(result or {})
+                    payload = _normalize_event_payload(
+                        result or {},
+                        response_id=response_id,
+                        request_id=request_id,
+                        default_event_type="final",
+                        default_append=False,
+                    )
+                    _send_protocol_json(payload)
+
+                # One-shot cancel token cleanup after finishing this request.
+                if request_id is not None:
+                    _CANCELED_REQUEST_IDS.discard(str(request_id))
+
                 # Explicit request boundary marker so Rust can drain exactly one turn.
                 _send_protocol_json({_TURN_END_KEY: True})
 

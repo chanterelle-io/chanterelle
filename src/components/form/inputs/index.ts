@@ -6,6 +6,8 @@ import { SelectInput } from "./SelectInput";
 import { CheckboxInput } from "./CheckboxInput";
 import { TextAreaInput } from "./TextAreaInput";
 import { FileInput } from "./FileInput";
+import { ButtonInput } from "./ButtonInput";
+import { YesNoInput } from "./YesNoInput";
 import { ModelInput, ModelInputConstraint } from "../../../types/ModelMeta";
 
 export type InputComponent = React.FC<BaseInputProps>;
@@ -106,6 +108,16 @@ export const inputRegistry: Record<string, InputDefinition> = {
             return value;
         }
     },
+    button: {
+        component: ButtonInput,
+        getDefaultValue: (input) => input.default !== undefined ? input.default : "",
+        validate: defaultValidator,
+    },
+    yes_no: {
+        component: YesNoInput,
+        getDefaultValue: (input) => input.default !== undefined ? input.default : "",
+        validate: defaultValidator,
+    },
 };
 
 export const getInputDefinition = (type: string): InputDefinition | null => {
@@ -115,4 +127,3 @@ export const getInputDefinition = (type: string): InputDefinition | null => {
 export const getInputComponent = (type: string): InputComponent | null => {
     return inputRegistry[type]?.component || null;
 };
-

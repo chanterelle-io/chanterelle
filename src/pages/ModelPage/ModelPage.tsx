@@ -5,6 +5,7 @@ import ModelForm from "./ModelForm";
 import { ArrowLeft, RotateCcw, Play, CheckCircle, AlertCircle } from "lucide-react";
 import { getModelMeta, ModelData } from "../../services/apis/getModelMeta";
 import { warmModel } from "../../services/apis/warmModel";
+import { forceKillPython } from "../../services/apis/forceKillPython";
 import { useProjectContext } from '../../contexts/ProjectContext';
 import ModelInsightsPage from "./ModelInsights";
 
@@ -52,6 +53,7 @@ const ModelPage: React.FC = () => {
         setWarmError(null);
 
         try {
+            await forceKillPython();
             const response = await warmModel(modelId);
             if (response.warmup) {
                 setWarmStatus('ready');
@@ -67,6 +69,11 @@ const ModelPage: React.FC = () => {
         }
     };
 
+    const handleBackToCatalog = async () => {
+        await forceKillPython();
+        navigate("/");
+    };
+
     useEffect(() => {
         // Scroll to top when navigating to this page
         window.scrollTo(0, 0);
@@ -75,6 +82,10 @@ const ModelPage: React.FC = () => {
         // Automatically warm up the model when the page loads
         handleWarmModel();
         document.title = `ML @ SSAB - ${modelId}`;
+
+        return () => {
+            void forceKillPython();
+        };
     }, [modelId]);
 
     if (!modelData && !loading && !error) {
@@ -98,7 +109,7 @@ const ModelPage: React.FC = () => {
                 data-tauri-drag-region={isMac ? "true" : undefined}
             >
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={handleBackToCatalog}
                     className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                     title="Back to catalog"
                 >
