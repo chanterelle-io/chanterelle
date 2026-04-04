@@ -106,7 +106,7 @@ export const HtmlComponent: React.FC<HtmlItem> = (item) => {
         return (
             <div className="w-full border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
                 <iframe 
-                    title={item.title}
+                  title={item.title || "HTML content"}
                     srcDoc={item.content}
                     className="w-full block"
                     style={{ height, border: 'none' }}
@@ -120,7 +120,7 @@ export const HtmlComponent: React.FC<HtmlItem> = (item) => {
         return (
             <div className="w-full border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm">
                  <iframe 
-                    title={item.title}
+                    title={item.title || "HTML content"}
                     src={src}
                     className="w-full block"
                     style={{ height, border: 'none' }}

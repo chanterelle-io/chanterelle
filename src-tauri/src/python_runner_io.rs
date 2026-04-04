@@ -3,6 +3,8 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 // use HashMap
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
+use tauri::Emitter;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -85,6 +87,7 @@ pub async fn load_model(
             println!("Cleaning up existing Python process with PID: {} before starting new one", existing_pid);
             drop(existing_process); // This will trigger the Drop implementation
         }
+        state.python_pid.store(0, Ordering::SeqCst);
     }
     
     let model_dir = Path::new(projects_dir).join(project_name);
@@ -93,39 +96,74 @@ pub async fn load_model(
         return Err("handler_io.py not found".to_string());
     }
     
-    // Load model metadata to get Python environment configuration
-    let metadata_path = model_dir.join("model_meta.json");
-    let python_environment = if metadata_path.exists() {
-        let metadata_content = std::fs::read_to_string(&metadata_path)
-            .map_err(|e| format!("Failed to read model_meta.json: {}", e))?;
+    // Determine project type and load configuration
+    let interactive_meta_path = model_dir.join("interactive.json");
+    let is_interactive = interactive_meta_path.exists();
+
+    let mut python_environment = None;
+
+    if is_interactive {
+        let content = std::fs::read_to_string(&interactive_meta_path)
+            .map_err(|e| format!("Failed to read interactive.json: {}", e))?;
         
-        let mut metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
-            .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+        let mut value: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse interactive.json: {}", e))?;
             
-        crate::projects::resolve_json_refs(&mut metadata_value, &model_dir)?;
+        crate::projects::resolve_json_refs(&mut value, &model_dir)?;
         
-        let model_meta: ModelMeta = serde_json::from_value(metadata_value)
-            .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
-        model_meta.python_environment
+        if let Some(env_val) = value.get("python_environment") {
+             let env: crate::types::PythonEnvironment = serde_json::from_value(env_val.clone())
+                .map_err(|e| format!("Failed to parse python_environment from interactive.json: {}", e))?;
+             python_environment = Some(env);
+        }
+    }
+
+    if python_environment.is_none() {
+        let metadata_path = model_dir.join("model_meta.json");
+        if metadata_path.exists() {
+            let metadata_content = std::fs::read_to_string(&metadata_path)
+                .map_err(|e| format!("Failed to read model_meta.json: {}", e))?;
+            
+            let mut metadata_value: serde_json::Value = serde_json::from_str(&metadata_content)
+                .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+            
+            crate::projects::resolve_json_refs(&mut metadata_value, &model_dir)?;
+            
+            let model_meta: ModelMeta = serde_json::from_value(metadata_value)
+                .map_err(|e| format!("Failed to parse model_meta.json: {}", e))?;
+            python_environment = model_meta.python_environment;
+        }
+    }
+    
+    // Ensure the base handler files exist in the project directory
+    if is_interactive {
+        println!("Project is interactive. Ensuring interactive handler exists.");
+        ensure_interactive_handler_exists(&model_dir)?;
     } else {
-        None
+        println!("Project is standard. Ensuring base handler exists.");
+        ensure_base_handler_exists(&model_dir)?;
+    }
+    
+    let handler_script = if is_interactive {
+        "python_interactive_handler_base.py"
+    } else {
+        "python_handler_base.py"
     };
-    
-    // Ensure the base handler file exists in the project directory
-    ensure_base_handler_exists(&model_dir)?;
-    
+
     // Build the appropriate Python command based on environment configuration
     let mut command = build_python_command(&python_environment, &model_dir)?;
     
+    let python_exe_for_error = format!("{:?}", command.get_program());
+
     let mut child = command
         .arg("-u") // Unbuffered output
-        .arg(&model_dir.join("python_handler_base.py"))  // Run base handler directly
+        .arg(&model_dir.join(handler_script))  // Run appropriate base handler
         .arg(&handler_py)  // Pass user's handler as argument
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped()) // Capture stderr for debugging
         .spawn()
-        .map_err(|e| format!("Failed to start Python: {}", e))?;
+        .map_err(|e| format!("Failed to start Python (exe={}): {}", python_exe_for_error, e))?;
 
     let stdin = child.stdin.take().unwrap();
     let mut stdout = BufReader::new(child.stdout.take().unwrap());
@@ -191,6 +229,7 @@ pub async fn load_model(
         stderr,
     };
     *state.python_process.lock().unwrap() = Some(python_process);
+    state.python_pid.store(process_id, Ordering::SeqCst);
 
     // Handshake already ensured the process is running and ready; proceed to model readiness check
 
@@ -211,7 +250,11 @@ fn build_python_command(python_env: &Option<PythonEnvironment>, model_dir: &Path
         Some(PythonEnvironment::System) | None => {
             // Use system Python
             println!("Using system Python");
-            Command::new("python")
+            if cfg!(windows) {
+                Command::new("python")
+            } else {
+                Command::new("python3")
+            }
         }
         Some(PythonEnvironment::Venv { path }) => {
             // Use virtual environment
@@ -283,6 +326,117 @@ fn ensure_base_handler_exists(model_dir: &Path) -> Result<(), String> {
     println!("Updated python_handler_base.py in project directory");
     
     Ok(())
+}
+
+fn ensure_interactive_handler_exists(model_dir: &Path) -> Result<(), String> {
+    let handler_path = model_dir.join("python_interactive_handler_base.py");
+    let content = include_str!("python_interactive_handler_base.py");
+    std::fs::write(&handler_path, content)
+        .map_err(|e| format!("Failed to create/update interactive handler file: {}", e))?;
+    Ok(())
+}
+
+pub async fn run_interactive(
+    _projects_dir: &str,
+    _project_name: &str,
+    inputs: HashMap<String, serde_json::Value>,
+    request_id: Option<String>,
+    window: tauri::Window,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    println!("Running interactive session with inputs: {:?}", inputs);
+    
+    let mut guard = state.python_process.lock().unwrap();
+    let process = guard.as_mut().ok_or("Python process not started")?;
+    validate_process_alive(process)?;
+    
+    let request_payload = if inputs.is_empty() {
+        serde_json::json!({
+            "command": "initialize",
+            "request_id": request_id
+        })
+    } else {
+        serde_json::json!({
+            "command": "on_input",
+            "inputs": inputs,
+            "request_id": request_id
+        })
+    };
+    let inputs_json = serde_json::to_string(&request_payload).map_err(|e| e.to_string())?;
+    send_request_to_python(process, &inputs_json)?;
+    
+    // Loop to read streaming responses
+    loop {
+        let mut line = String::new();
+        match process.stdout.read_line(&mut line) {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                let trimmed = line.trim();
+                if trimmed.is_empty() { continue; }
+                
+                // Try parsing to ensure validity before emitting
+                match serde_json::from_str::<serde_json::Value>(trimmed) {
+                    Ok(json_val) => {
+                        // Drain one full request/response turn using explicit Python boundary marker.
+                        if json_val
+                            .get("_chanterelle_turn_end")
+                            .and_then(|v| v.as_bool())
+                            == Some(true)
+                        {
+                            break;
+                        }
+
+                        window.emit("interactive:output", &json_val).map_err(|e| e.to_string())?;
+                    },
+                    Err(e) => {
+                        println!("Error parsing interactive output: {}", e);
+                    }
+                }
+            }
+            Err(e) => return Err(format!("Error reading from Python: {}", e)),
+        }
+    }
+    Ok(())
+}
+
+pub async fn stop_interactive(
+    request_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    // Try cooperative cancel first if we can lock immediately.
+    if let Ok(mut guard) = state.python_process.try_lock() {
+        if let Some(process) = guard.as_mut() {
+            let request = serde_json::json!({
+                "command": "cancel",
+                "request_id": request_id
+            });
+            let request_json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
+            if send_request_to_python(process, &request_json).is_ok() {
+                return Ok(true);
+            }
+        }
+    }
+
+    // If cooperative cancel cannot be delivered (e.g., mutex busy), try a soft OS-level terminate.
+    let pid = state.python_pid.load(Ordering::SeqCst);
+    if pid == 0 {
+        return Ok(false);
+    }
+
+    #[cfg(unix)]
+    let status = Command::new("kill")
+        .arg("-15")
+        .arg(pid.to_string())
+        .status()
+        .map_err(|e| format!("Failed to run soft kill for PID {}: {}", pid, e))?;
+
+    #[cfg(windows)]
+    let status = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T"])
+        .status()
+        .map_err(|e| format!("Failed to run soft taskkill for PID {}: {}", pid, e))?;
+
+    Ok(status.success())
 }
 
 pub async fn run_model(
@@ -532,11 +686,45 @@ pub async fn cleanup_python_process(state: tauri::State<'_, AppState>) -> Result
         
         // The Drop implementation will handle the actual cleanup
         drop(process);
+        state.python_pid.store(0, Ordering::SeqCst);
         
         println!("Python process cleanup completed");
         Ok(())
     } else {
         println!("No Python process to cleanup");
+        state.python_pid.store(0, Ordering::SeqCst);
         Ok(())
     }
+}
+
+pub async fn force_kill_python_process(state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let pid = state.python_pid.load(Ordering::SeqCst);
+    if pid == 0 {
+        return Ok(false);
+    }
+
+    println!("Force-killing Python process with PID: {}", pid);
+
+    #[cfg(unix)]
+    let status = Command::new("kill")
+        .arg("-9")
+        .arg(pid.to_string())
+        .status()
+        .map_err(|e| format!("Failed to run kill for PID {}: {}", pid, e))?;
+
+    #[cfg(windows)]
+    let status = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .status()
+        .map_err(|e| format!("Failed to run taskkill for PID {}: {}", pid, e))?;
+
+    let killed = status.success();
+    if killed {
+        state.python_pid.store(0, Ordering::SeqCst);
+        if let Ok(mut guard) = state.python_process.try_lock() {
+            let _ = guard.take();
+        }
+    }
+
+    Ok(killed)
 }

@@ -36,7 +36,7 @@ export interface ScatterPlotItem extends BaseItem {
 }
 
 // ScatterPlot Component
-export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data }) => {
+export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data, full_width }) => {
     // Early returns: Doesn't work ...
     // Check if data exists
     if (!data) {
@@ -129,8 +129,13 @@ export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data }) => {
         },
     };
 
+    const outerClass = full_width ? "w-full" : "w-full flex justify-center";
+    const chartClass = full_width
+        ? "w-full h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800"
+        : "w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800";
+
     return (
-        <div className="w-full flex justify-center">
+        <div className={outerClass}>
             {/* Conditional warnings in main return: works but ...  */}
             {/* Show axis warning if missing */}
             {(!data.axis || !data.axis.x || !data.axis.y) && (
@@ -138,7 +143,7 @@ export const ScatterPlotComponent: React.FC<ScatterPlotItem> = ({ data }) => {
                     ℹ️ Info: Using default axis labels (axis configuration missing)
                 </div>
             )}
-            <div className="w-full max-w-2xl h-96 border border-gray-300 dark:border-slate-600 rounded-lg p-4 bg-white dark:bg-slate-800">
+            <div className={chartClass}>
                 <Scatter data={chartData} options={options} />
             </div>
         </div>

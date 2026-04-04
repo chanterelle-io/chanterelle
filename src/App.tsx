@@ -1,16 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router';
 import './App.css';
 import { FirstTimeSetup } from './components/FirstTimeSetup';
 import ModelsCatalog from './pages/ModelsCatalog/ModelsCatalog';
 import ModelPage from './pages/ModelPage/ModelPage';
 import AnalyticsPage from './pages/AnalyticsPage/AnalyticsPage';
+import InteractivePage from './pages/InteractivePage/InteractivePage';
 import { Settings } from './pages/Settings/Settings';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { SettingsService } from './services/Settings';
 import TitleBar from './components/layout/TitleBar';
+
+const ScrollToTop: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const scrollEl = document.getElementById('app-scroll-container');
+    scrollEl?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.pathname, location.search, location.hash]);
+
+  return null;
+};
 
 const App: React.FC = () => {
   const [isFirstTimeSetupComplete, setIsFirstTimeSetupComplete] = useState(false);
@@ -40,14 +52,16 @@ const App: React.FC = () => {
     return (
       <ThemeProvider>
         <NotificationProvider>
-          <div className="flex flex-col min-h-screen bg-sky-100 dark:bg-slate-900 transition-colors">
+          <div className="flex flex-col h-full bg-sky-100 dark:bg-slate-900 transition-colors overflow-hidden">
             <TitleBar />
-            <div className="flex-1 flex items-center justify-center pt-8">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+            <main className="flex-1 min-h-0 overflow-auto pt-8" id="app-scroll-container">
+              <div className="min-h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+                </div>
               </div>
-            </div>
+            </main>
           </div>
         </NotificationProvider>
       </ThemeProvider>
@@ -58,9 +72,9 @@ const App: React.FC = () => {
     return (
       <ThemeProvider>
         <NotificationProvider>
-          <div className="flex flex-col min-h-screen bg-sky-100 dark:bg-slate-900 transition-colors">
+          <div className="flex flex-col h-full bg-sky-100 dark:bg-slate-900 transition-colors overflow-hidden">
             <TitleBar />
-            <main className="flex-grow pt-8">
+            <main className="flex-1 min-h-0 overflow-auto pt-8" id="app-scroll-container">
               <FirstTimeSetup
                 onComplete={() => {
                   console.log('First-time setup completed');
@@ -79,13 +93,15 @@ const App: React.FC = () => {
       <NotificationProvider>
         <ProjectProvider>
           <Router>
-            <div className="flex flex-col min-h-screen bg-sky-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors">
+            <ScrollToTop />
+            <div className="flex flex-col h-full bg-sky-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors overflow-hidden">
               <TitleBar />
-              <main className="flex-grow pt-8">
+              <main className="flex-1 min-h-0 overflow-auto" id="app-scroll-container">
                 <Routes>
                   <Route path="/" element={<ModelsCatalog />} />
                   <Route path="/model/:modelId" element={<ModelPage />} />
                   <Route path="/analytics/:projectId" element={<AnalyticsPage />} />
+                  <Route path="/interactive/:modelId" element={<InteractivePage />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </main>

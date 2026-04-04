@@ -74,6 +74,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
 
             let model_meta_path = path.join("model_meta.json");
             let analytics_meta_path = path.join("analytics.json");
+            let interactive_meta_path = path.join("interactive.json");
             
             // Check for modeling project
             if model_meta_path.exists() {
@@ -92,6 +93,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                             .collect::<HashMap<_, _>>()
                                     }),
                                     kind: "model".to_string(),
+                                    allow_feedback: metadata.get("allow_feedback").and_then(|v| v.as_bool()),
                                 });
                             }
                             Err(e) => {
@@ -102,11 +104,57 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                     description_short: "Error".to_string(),
                                     tags: None,
                                     kind: "model".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                         }
                     }
                     Err(_) => {}
+                }
+            } else if interactive_meta_path.exists() {
+                // Check for interactive project
+                match fs::read_to_string(&interactive_meta_path) {
+                    Ok(metadata_content) => {
+                        match serde_json::from_str::<serde_json::Value>(&metadata_content) {
+                            Ok(metadata) => {
+                                projects.push(ProjectMeta {
+                                    project_name: project_id.clone(),
+                                    project_title: metadata["interactive_name"].as_str().unwrap_or(&project_id).to_string(),
+                                    description: metadata["description"].as_str().unwrap_or("Interactive Project").to_string(),
+                                    description_short: metadata["description_short"].as_str().unwrap_or("Interactive Project").to_string(),
+                                    tags: metadata.get("tags").and_then(|t| t.as_object()).map(|t| {
+                                        t.iter()
+                                            .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
+                                            .collect::<HashMap<_, _>>()
+                                    }),
+                                    kind: "interactive".to_string(),
+                                    allow_feedback: metadata.get("allow_feedback").and_then(|v| v.as_bool()),
+                                });
+                            }
+                            Err(e) => {
+                                projects.push(ProjectMeta {
+                                    project_name: project_id.clone(),
+                                    project_title: format!("Error in {}", project_id),
+                                    description: format!("Failed to parse JSON: {}", e),
+                                    description_short: "Error".to_string(),
+                                    tags: None,
+                                    kind: "interactive".to_string(),
+                                    allow_feedback: None,
+                                });
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        projects.push(ProjectMeta {
+                            project_name: project_id.clone(),
+                            project_title: format!("Error in {}", project_id),
+                            description: format!("Failed to read file: {}", e),
+                            description_short: "Error".to_string(),
+                            tags: None,
+                            kind: "interactive".to_string(),
+                            allow_feedback: None,
+                        });
+                    }
                 }
             } else if analytics_meta_path.exists() {
                 // Check for analytics project
@@ -125,6 +173,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                             .collect::<HashMap<_, _>>()
                                     }),
                                     kind: "analytics".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                             Err(e) => {
@@ -135,6 +184,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                     description_short: "Error".to_string(),
                                     tags: None,
                                     kind: "analytics".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                         }
@@ -147,6 +197,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                             description_short: "Error".to_string(),
                             tags: None,
                             kind: "analytics".to_string(),
+                            allow_feedback: None,
                         });
                     }
                 }
@@ -205,7 +256,7 @@ pub async fn internal_get_analytics_details(
         return Err(format!("Project directory not found: {}", project_dir.display()));
     }
 
-    let meta_path = project_dir.join("analytics_meta.json");
+    let meta_path = project_dir.join("analytics.json");
      let mut insights = if meta_path.exists() {
         let content = fs::read_to_string(&meta_path).map_err(|e| format!("Failed to read file '{}': {}", meta_path.display(), e))?;
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse JSON in file '{}': {}", meta_path.display(), e))?

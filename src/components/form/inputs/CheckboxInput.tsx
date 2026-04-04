@@ -8,7 +8,7 @@ export const CheckboxInput: React.FC<BaseInputProps> = ({ input, value, onChange
             name={input.name}
             checked={!!value}
             onChange={e => onChange(input.name, e.target.checked)}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-slate-600 dark:bg-slate-700"
+            className="h-5 w-5 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-500"
         />
     );
 };

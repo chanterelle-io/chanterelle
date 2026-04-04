@@ -7,11 +7,12 @@ import { FeedbackForm } from "../../components/FeedbackForm";
 import { FeedbackList } from "../../components/FeedbackList";
 import { getFeedbackHistory, FeedbackEntry } from "../../services/apis/getFeedbackHistory";
 import { deleteFeedback } from "../../services/apis/deleteFeedback";
-import { Bot, ChevronRight, History } from "lucide-react";
+import { Bot, ChevronRight, History, Square } from "lucide-react";
 import { useParams } from "react-router";
 import { ModelFormFieldset } from "../../components/form";
 import { getInputDefinition } from "../../components/form/inputs";
 import { resolveEffectiveConstraints } from "../../utils/formUtils";
+import { forceKillPython } from "../../services/apis/forceKillPython";
 
 
 interface ModelFormProps {
@@ -31,6 +32,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     const [presetSelections, setPresetSelections] = useState<{ [presetName: string]: string }>({});
     const [result, setResult] = useState<SectionType[] | null>(null);
     const [predictLoading, setPredictLoading] = useState(false);
+    const requestSeqRef = React.useRef(0);
     
     // Feedback state
     const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
@@ -144,6 +146,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setPredictLoading(true);
+        const requestSeq = ++requestSeqRef.current;
         // Validate all required inputs
         const errors: string[] = [];
         model.inputs.forEach(input => {
@@ -179,10 +182,12 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
         // Submit the form data
         invokeModel(modelId, parsedValues)
             .then(response => {
+                if (requestSeq !== requestSeqRef.current) return;
                 console.log("Model invoked successfully:", response);
                 setResult(response);
             })
             .catch(error => {
+                if (requestSeq !== requestSeqRef.current) return;
                 console.error("Error invoking model:", error);
                 // Create an error section for caught exceptions
                 setResult([{
@@ -194,8 +199,23 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                 }]);
             })
             .finally(() => {
+                if (requestSeq !== requestSeqRef.current) return;
                 setPredictLoading(false);
             });
+    };
+
+    const handleStopPrediction = async () => {
+        requestSeqRef.current += 1;
+        await forceKillPython();
+        setPredictLoading(false);
+        setResult([{
+            type: 'section',
+            id: 'stopped',
+            color: 'yellow',
+            title: 'Results',
+            description: 'Execution stopped by user.',
+            items: []
+        }]);
     };
 
     return (
@@ -267,13 +287,25 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                         {/* <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
                             Predict
                         </button> */}
-                        <button
-                            disabled={predictLoading}
-                            className="flex items-center gap-2 mb-2 px-3 py-2 bg-blue-600 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 hover:cursor-pointer"
-                        >
-                            <Bot className="w-4 h-4" />
-                            {predictLoading ? "Predicting..." : "Predict"}
-                        </button>
+                        <div className="flex items-center gap-2 mb-2">
+                            <button
+                                disabled={predictLoading}
+                                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 hover:cursor-pointer"
+                            >
+                                <Bot className="w-4 h-4" />
+                                {predictLoading ? "Predicting..." : "Predict"}
+                            </button>
+                            {predictLoading && (
+                                <button
+                                    type="button"
+                                    onClick={handleStopPrediction}
+                                    className="flex items-center gap-2 px-3 py-2 border border-red-500 text-red-600 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/20"
+                                >
+                                    <Square className="w-4 h-4" />
+                                    Stop
+                                </button>
+                            )}
+                        </div>
 
                         </form>
                     </div>
@@ -313,10 +345,11 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
             {/* Results (full width; does not contract when history is open) */}
             {result && result.length > 0 && (
                 <div className="p-4 rounded-lg bg-white dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 overflow-x-auto min-w-0">
-                    {result.map((section) => (
+                    {result.map((section, idx) => (
                         <SectionComponent
-                            key={section.id}
+                            key={section.id || idx}
                             section={section}
+                            index={idx}
                         />
                     ))}
                     {model.allow_feedback && modelId && (

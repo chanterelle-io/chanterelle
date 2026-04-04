@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
@@ -14,6 +15,20 @@
   --color-text: #0f172a;
 }
 
+/* Text Size Scalings */
+:root[data-text-size="small"] {
+  font-size: 14px;
+}
+:root[data-text-size="medium"] {
+  font-size: 16px;
+}
+:root[data-text-size="large"] {
+  font-size: 18px; /* ~112.5% */
+}
+:root[data-text-size="xlarge"] {
+  font-size: 20px; /* ~125% */
+}
+
 .dark:root, :root.dark {
   /* Tailwind slate-900 */
   --color-bg: #0f172a;
@@ -22,11 +37,19 @@
   color-scheme: dark;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-bg);
   color: var(--color-text);
   transition: background-color 0.25s, color 0.25s;
+  margin: 0;
+  overflow: hidden;
 }
 
 /* Custom animations and utilities */
@@ -42,6 +65,7 @@ body {
 .animate-spin-slow {
   animation: spin-slow 20s linear infinite;
 }
+
 /* 
 a {
   font-weight: 500;

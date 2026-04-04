@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import LoadSpinner from "../../components/common/LoadSpinner";
+import ErrorBoundary from "../../components/common/ErrorBoundary";
 import AnalyticsInsights from "./AnalyticsInsights";
 import { getAnalyticsDetails, AnalyticsDetails } from "../../services/apis/getAnalyticsDetails";
 import { useProjectContext } from "../../contexts/ProjectContext";
@@ -13,6 +14,8 @@ const AnalyticsPage: React.FC = () => {
     const [details, setDetails] = useState<AnalyticsDetails | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+
+    const [isMac] = useState(() => navigator.userAgent.includes('Mac'));
 
     const loadDetails = () => {
         if (projectId) {
@@ -33,42 +36,69 @@ const AnalyticsPage: React.FC = () => {
     }, [projectId]);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-900">
-             <div className="sticky top-0 z-50 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="relative flex items-center justify-between h-16">
-                        <div className="flex items-center">
-                            <button
-                                onClick={() => navigate('/')}
-                                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-                                title="Back to catalog"
-                            >
-                                <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
-                            </button>
-                        </div>
-                        
-                        <h1 className="absolute left-1/2 transform -translate-x-1/2 text-xl font-bold text-gray-900 dark:text-white truncate max-w-[50%]">
-                            {projectId}
-                        </h1>
+        <div className="min-h-full bg-gray-50 dark:bg-slate-900 pb-5 sm:px-2 lg:px-4 transition-colors">
+            <div
+                className={`sticky ${isMac ? 'top-0 z-50' : 'top-8 z-30'} py-2 px-6 bg-gray-50 dark:bg-slate-900/90 backdrop-blur mb-2 flex items-center justify-between`}
+                data-tauri-drag-region={isMac ? "true" : undefined}
+            >
+                <button
+                    onClick={() => navigate('/')}
+                    className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+                    title="Back to catalog"
+                >
+                    <ArrowLeft size={20} className="text-gray-600 dark:text-gray-300" />
+                </button>
 
-                        <div className="flex items-center">
-                            <button
-                                onClick={loadDetails}
-                                disabled={loading}
-                                className="flex items-center text-blue-600 hover:text-blue-400 dark:hover:text-blue-500 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
-                                title="Refresh analytics"
-                            >
-                                <RotateCcw className={`mr-1 ${loading ? 'animate-spin' : ''}`} size={16} /> Refresh
-                            </button>
-                        </div>
-                    </div>
+                <h2 className="text-lg font-mono font-semibold text-slate-800 dark:text-slate-100">
+                    {projectId || 'Loading...'}
+                </h2>
+
+                <div className="flex items-center">
+                    <button
+                        onClick={loadDetails}
+                        disabled={loading}
+                        className="flex items-center text-blue-600 hover:text-blue-400 dark:hover:text-blue-500 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                        title="Refresh analytics"
+                    >
+                        <RotateCcw className={`mr-1 ${loading ? 'animate-spin' : ''}`} size={16} /> Refresh
+                    </button>
                 </div>
             </div>
 
             {loading && !details && <LoadSpinner />}
             {!loading && error && <div className="p-8 text-red-500">Error: {error}</div>}
             {!loading && !error && !details && <div className="p-8">No details found.</div>}
-            {!!details && <AnalyticsInsights insights={details.insights} />}
+            {!!details && (
+                <ErrorBoundary
+                    fallback={({ error, reset }) => (
+                        <div className="p-6 my-4 rounded border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200">
+                            <div className="font-semibold mb-2">Analytics render error</div>
+                            <div className="text-sm whitespace-pre-wrap">{error.message}</div>
+                            <div className="mt-4 flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        reset();
+                                        loadDetails();
+                                    }}
+                                    className="px-3 py-2 rounded bg-red-600 text-white text-sm hover:bg-red-700"
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={reset}
+                                    className="px-3 py-2 rounded border border-red-300 dark:border-red-700 text-sm"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                >
+                    <AnalyticsInsights insights={details.insights} />
+                </ErrorBoundary>
+            )}
         </div>
     );
 };

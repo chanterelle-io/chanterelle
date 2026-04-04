@@ -3,6 +3,7 @@
 
 // src-tauri/src/main.rs
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use tauri::Manager;
 
 mod projects;
@@ -17,6 +18,23 @@ use state::AppState;
 struct WarmupResponse {
     warmup: bool,
     error: Option<String>,
+    allow_feedback: Option<bool>,
+}
+
+fn read_allow_feedback(projects_dir: &str, project_name: &str) -> Option<bool> {
+    let model_dir = std::path::Path::new(projects_dir).join(project_name);
+    // Try interactive.json first, then model_meta.json
+    for filename in &["interactive.json", "model_meta.json"] {
+        let path = model_dir.join(filename);
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    return value.get("allow_feedback").and_then(|v| v.as_bool());
+                }
+            }
+        }
+    }
+    None
 }
 
 #[tauri::command]
@@ -29,14 +47,18 @@ async fn warmup_model(
         settings.projects_directory.clone()
     };
 
+    let allow_feedback = read_allow_feedback(&projects_dir, &project_name);
+
     match python_runner_io::load_model(&projects_dir, &project_name, state).await {
         Ok(_) => Ok(WarmupResponse {
             warmup: true,
             error: None,
+            allow_feedback,
         }),
         Err(e) => Ok(WarmupResponse {
             warmup: false,
             error: Some(format!("Failed to warm up model: {}", e)),
+            allow_feedback,
         }),
     }
 }
@@ -52,6 +74,29 @@ async fn invoke_model(
         settings.projects_directory.clone()
     };
     python_runner_io::run_model(&projects_dir, &project_name, inputs, state).await
+}
+
+#[tauri::command]
+async fn invoke_interactive(
+    project_name: String,
+    inputs: HashMap<String, serde_json::Value>,
+    request_id: Option<String>,
+    window: tauri::Window,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let projects_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.projects_directory.clone()
+    };
+    python_runner_io::run_interactive(&projects_dir, &project_name, inputs, request_id, window, state).await
+}
+
+#[tauri::command]
+async fn stop_interactive(
+    request_id: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    python_runner_io::stop_interactive(request_id, state).await
 }
 
 // Settings commands
@@ -234,6 +279,13 @@ async fn cleanup_python_process(
     python_runner_io::cleanup_python_process(state).await
 }
 
+#[tauri::command]
+async fn force_kill_python_process(
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    python_runner_io::force_kill_python_process(state).await
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -264,6 +316,7 @@ fn main() {
                         println!("Window closing - cleaning up Python process with PID: {}", pid);
                         // Drop will handle the cleanup
                         drop(process);
+                        state.python_pid.store(0, Ordering::SeqCst);
                         println!("Python process cleanup completed on window close");
                     }
                 }
@@ -276,10 +329,13 @@ fn main() {
             projects::get_analytics_details,
             warmup_model,
             invoke_model,
+            invoke_interactive,
+            stop_interactive,
             get_settings,
             set_projects_directory,
             open_directory_dialog,
             cleanup_python_process,
+            force_kill_python_process,
             submit_feedback,
             get_feedback_history,
             delete_feedback,

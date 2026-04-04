@@ -3,6 +3,13 @@ import { ModelInsightsType } from "../../types/Project";
 import { SectionOrItemType, SectionType, SectionComponent } from "../../components/insights";
 import { componentRegistry } from "../../components/insights";
 
+// Helper to generate consistent IDs
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 // Recursive helper to flatten all items for ToC (sections and all insight items)
 function getAllItemsForToc(
   items: SectionOrItemType[],
@@ -10,9 +17,18 @@ function getAllItemsForToc(
   parentId = ""
 ): { id: string; title: string; level: number; type: string }[] {
   let toc: { id: string; title: string; level: number; type: string }[] = [];
-  for (const item of items) {
-    // Compose a unique id for anchor navigation
-    const itemId = parentId && item.id ? `${parentId}__${item.id}` : item.id || parentId;
+  
+  items.forEach((item, index) => {
+    // Compose a unique id consistent with Section.tsx logic
+    let localId = item.id;
+    if (!localId) {
+      localId = item.title
+        ? slugify(item.title)
+        : (item.type === 'section' ? `section-${index}` : `item-${index}`);
+    }
+
+    const itemId = parentId ? `${parentId}__${localId}` : localId;
+
     // Only add if there's a title and id
     if (item.title && itemId) {
       toc.push({ id: itemId, title: item.title, level, type: item.type });
@@ -26,14 +42,15 @@ function getAllItemsForToc(
         // Object.values(section.subsections).forEach(subsection => {
         //   toc = toc.concat(getAllItemsForToc(subsection.items, level + 1, itemId));
         // });
-        continue; // Skip adding section itself, only its items
+        // continue; // Skip adding section itself, only its items
       }
       // Handle traditional sections with direct items (no dropdown)
       else if (section.items) {
         toc = toc.concat(getAllItemsForToc(section.items, level + 1, itemId));
       }
     }
-  }
+  });
+
   return toc;
 }
 
@@ -49,7 +66,7 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
   return (
   <div className="flex">
       {/* Sidebar */}
-      <aside className="w-64 flex-shrink-0 sticky top-8 self-start overflow-hidden bg-gray-50 dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 p-4">
+      <aside className="w-64 flex-shrink-0 sticky top-12 self-start overflow-hidden bg-gray-50 dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 p-4">
         <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">Table of Contents</h2>
         <ul>
           {tocSections.map((sec) => {
@@ -78,12 +95,9 @@ const ModelInsightsPage: React.FC<ModelInsightsPageProps> = ({ insights }) => {
         </ul>
       </aside>
       {/* Main Content */}
-      <main className="flex-1 p-4 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
-        <h2 className="text-2xl font-bold mb-6">
-            Findings
-        </h2>
-        {insights.content.map((section) => (
-          <SectionComponent key={section.id} section={section} />
+      <main className="flex-1 px-4 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
+        {insights.content.map((section, idx) => (
+          <SectionComponent key={section.id || idx} section={section} index={idx} />
         ))}
       </main>
     </div>

@@ -31,13 +31,15 @@ export interface SectionType {
     type: 'section';
     color?: 'white' | 'red' | 'green' | 'blue' | 'yellow' | 'purple' | 'orange'; // Optional: color for section header
     id?: string;
-    title: string;
+    title?: string;
     description?: string;
     items?: SectionOrItemType[]; // Optional: array of items or subsections
     items_per_row?: number; // Optional: number of items to display per row (default: 1)
     dropdown?: DropdownConfig; // dropdown configuration
     subsections?: Record<string, Subsection>; // New subsections for dropdown content
     comment?: string;
+    collapsible?: boolean;
+    collapsed?: boolean;
 }
 
 // // Item type for all insight items
@@ -78,14 +80,30 @@ interface SectionComponentProps {
     section: SectionType;
     level?: number;
     parentId?: string;
+    index?: number;
 }
 
 export const SectionComponent: React.FC<SectionComponentProps> = ({
     section,
     level = 1,
-    parentId = ""
+    parentId = "",
+    index
 }) => {
-    const localId = section.id || (section.title ? section.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'section');
+    const hasTitle = Boolean(section.title);
+
+    const slugify = (value: string) =>
+        value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+    const localId =
+        section.id ||
+        (section.title
+            ? slugify(section.title)
+            : typeof index === 'number'
+                ? `section-${index}`
+                : 'section');
     const sectionId = parentId ? `${parentId}__${localId}` : localId;
     const headingClass =
         level === 1
@@ -147,12 +165,8 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
         }
     };
 
-    return (
-        <div className={`p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}`}>
-            <div className={headingClass}>
-                <h2 className="flex-1">{section.title}</h2>
-            </div>
-            
+    const sectionContent = (
+        <>
             {section.description && (
                 <p className="mb-3 text-gray-600 dark:text-gray-300">{section.description}</p>
             )}
@@ -172,7 +186,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
                         ))}
                     </select>
                     {section.dropdown.options.find(opt => opt.id === selectedOption)?.description && (
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             {section.dropdown.options.find(opt => opt.id === selectedOption)?.description}
                         </p>
                     )}
@@ -181,18 +195,43 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
 
             {/* Render items */}
             {itemsToRender.length > 0 && (
-                <div 
+                <div
                     className={`grid gap-4`}
                     style={{ gridTemplateColumns: `repeat(${itemsPerRow}, 1fr)` }}
                 >
-                    {itemsToRender.map((item, index) => 
+                    {itemsToRender.map((item, index) =>
                         renderSectionOrItem(item, level, sectionId, index)
                     )}
                 </div>
             )}
 
             {section.comment && (
-                <div className="text-m text-gray-800 mt-3">{section.comment}</div>
+                <div className="text-m text-gray-800 dark:text-gray-300 mt-3">{section.comment}</div>
+            )}
+        </>
+    );
+
+    return (
+        <div className={`${hasTitle ? `p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}` : ''}`}>
+            {section.collapsible && section.title ? (
+                <details open={!section.collapsed} className="group">
+                    <summary className="list-none cursor-pointer select-none">
+                        <div className={headingClass}>
+                            <span className="mr-2 text-slate-500 transition-transform group-open:rotate-90">{">"}</span>
+                            <h2 className="flex-1">{section.title}</h2>
+                        </div>
+                    </summary>
+                    {sectionContent}
+                </details>
+            ) : (
+                <>
+                    {section.title && (
+                        <div className={headingClass}>
+                            <h2 className="flex-1">{section.title}</h2>
+                        </div>
+                    )}
+                    {sectionContent}
+                </>
             )}
         </div>
     )
@@ -201,7 +240,13 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
 // Recursive item renderer
 export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId = "", index = 0): JSX.Element | null => {
     if (!item) return null;
-    const localId = item.id || (item.title ? item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `item-${index}`);
+    const slugify = (value: string) =>
+        value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+
+    const localId = item.id || (item.title ? slugify(item.title) : `item-${index}`);
     const itemId = parentId ? `${parentId}__${localId}` : localId;
 
     if (item.type === "section") {
@@ -212,6 +257,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
                 section={{...item, id: localId} as SectionType}
                 level={level + 1}
                 parentId={parentId}
+                index={index}
             />
         );
     } else {
@@ -219,23 +265,54 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         // const itemData = item as ItemType;
         const IconComponent = componentRegistry[item.type]?.icon;
         const DataComponent = componentRegistry[item.type]?.Component;
-        
+        const defaultCollapsibleTypes = new Set<string>([]);
+        const isCollapsible = item.collapsible ?? defaultCollapsibleTypes.has(item.type);
+        const startsCollapsed = item.collapsed ?? isCollapsible;
+        const summaryLabel = item.title || item.description || item.type.replace(/_/g, " ");
+
         return (
-            <div key={localId} id={itemId} className="mb-1 p-1" data-toc>
-                <div className="mb-3">
-                    <h4 className="text-lg font-semibold mb-1 flex items-center">
-                        {IconComponent && <IconComponent />}
-                        {item.title}
-                    </h4>
-                    {item.description && (
-                        <p className="text-sm text-gray-600">{item.description}</p>
-                    )}
-                </div>
-                <div className="mb-3">
-                    {DataComponent && <DataComponent { ...item } />}
-                </div>
-                {item.comment && (
-                    <div className="text-sm italic text-gray-800">{item.comment}</div>
+            <div key={localId} id={itemId} className="" data-toc>
+                {isCollapsible ? (
+                    <details open={!startsCollapsed} className="group rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 p-3">
+                        <summary className="list-none cursor-pointer select-none">
+                            <h4 className="text-lg font-semibold mb-1 flex items-center">
+                                <span className="mr-2 text-slate-500 transition-transform group-open:rotate-90">{">"}</span>
+                                {IconComponent && <IconComponent />}
+                                <span className="capitalize">{summaryLabel}</span>
+                            </h4>
+                            {item.description && (
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
+                            )}
+                        </summary>
+                        <div className="mt-3">
+                            {DataComponent && <DataComponent { ...item } />}
+                        </div>
+                        {item.comment && (
+                            <div className="text-sm italic text-gray-800 dark:text-gray-300 mt-2">{item.comment}</div>
+                        )}
+                    </details>
+                ) : (
+                    <>
+                        {(item.title || item.description) && (
+                            <div className="mb-3">
+                                {item.title && (
+                                    <h4 className="text-lg font-semibold mb-1 flex items-center">
+                                        {IconComponent && <IconComponent />}
+                                        {item.title}
+                                    </h4>
+                                )}
+                                {item.description && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
+                                )}
+                            </div>
+                        )}
+                        <div className="">
+                            {DataComponent && <DataComponent { ...item } />}
+                        </div>
+                        {item.comment && (
+                            <div className="text-sm italic text-gray-800 dark:text-gray-300">{item.comment}</div>
+                        )}
+                    </>
                 )}
             </div>
         );

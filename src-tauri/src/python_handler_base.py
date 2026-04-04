@@ -285,6 +285,11 @@ class MLModelHandler:
                 _send_protocol_json(result)
                 continue
 
+            # Handle graceful stop command
+            if isinstance(request_data, dict) and request_data.get("command") in {"cancel", "stop", "shutdown"}:
+                _send_protocol_json({"status": "stopped", "stopped": True})
+                break
+
             # Handle feedback command
             if isinstance(request_data, dict) and request_data.get("command") == "feedback":
                 result = self.handle_feedback(request_data.get("data"))
