@@ -93,6 +93,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                             .collect::<HashMap<_, _>>()
                                     }),
                                     kind: "model".to_string(),
+                                    allow_feedback: metadata.get("allow_feedback").and_then(|v| v.as_bool()),
                                 });
                             }
                             Err(e) => {
@@ -103,6 +104,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                     description_short: "Error".to_string(),
                                     tags: None,
                                     kind: "model".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                         }
@@ -126,6 +128,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                             .collect::<HashMap<_, _>>()
                                     }),
                                     kind: "interactive".to_string(),
+                                    allow_feedback: metadata.get("allow_feedback").and_then(|v| v.as_bool()),
                                 });
                             }
                             Err(e) => {
@@ -136,6 +139,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                     description_short: "Error".to_string(),
                                     tags: None,
                                     kind: "interactive".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                         }
@@ -148,6 +152,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                             description_short: "Error".to_string(),
                             tags: None,
                             kind: "interactive".to_string(),
+                            allow_feedback: None,
                         });
                     }
                 }
@@ -168,6 +173,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                             .collect::<HashMap<_, _>>()
                                     }),
                                     kind: "analytics".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                             Err(e) => {
@@ -178,6 +184,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                                     description_short: "Error".to_string(),
                                     tags: None,
                                     kind: "analytics".to_string(),
+                                    allow_feedback: None,
                                 });
                             }
                         }
@@ -190,6 +197,7 @@ async fn internal_list_projects(projects_dir: &str) -> Result<Vec<ProjectMeta>, 
                             description_short: "Error".to_string(),
                             tags: None,
                             kind: "analytics".to_string(),
+                            allow_feedback: None,
                         });
                     }
                 }

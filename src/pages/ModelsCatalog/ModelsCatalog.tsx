@@ -61,7 +61,7 @@ const ModelsCatalog: React.FC = () => {
                             className="h-16 w-16 object-contain"
                         />
                     {/* <Brain className="text-blue-600" size={24} /> */}
-                    <h1 className="ml-6 text-5xl font-bold font-mono text-blue-950 dark:text-slate-100 flex items-center">
+                    <h1 className=" text-4xl font-bold font-mono text-blue-950 dark:text-slate-100 flex items-center">
                         Chanterelle
                     </h1>
                 </div>

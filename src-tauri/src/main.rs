@@ -18,6 +18,23 @@ use state::AppState;
 struct WarmupResponse {
     warmup: bool,
     error: Option<String>,
+    allow_feedback: Option<bool>,
+}
+
+fn read_allow_feedback(projects_dir: &str, project_name: &str) -> Option<bool> {
+    let model_dir = std::path::Path::new(projects_dir).join(project_name);
+    // Try interactive.json first, then model_meta.json
+    for filename in &["interactive.json", "model_meta.json"] {
+        let path = model_dir.join(filename);
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                    return value.get("allow_feedback").and_then(|v| v.as_bool());
+                }
+            }
+        }
+    }
+    None
 }
 
 #[tauri::command]
@@ -30,14 +47,18 @@ async fn warmup_model(
         settings.projects_directory.clone()
     };
 
+    let allow_feedback = read_allow_feedback(&projects_dir, &project_name);
+
     match python_runner_io::load_model(&projects_dir, &project_name, state).await {
         Ok(_) => Ok(WarmupResponse {
             warmup: true,
             error: None,
+            allow_feedback,
         }),
         Err(e) => Ok(WarmupResponse {
             warmup: false,
             error: Some(format!("Failed to warm up model: {}", e)),
+            allow_feedback,
         }),
     }
 }

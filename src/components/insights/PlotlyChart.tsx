@@ -136,6 +136,20 @@ const normalizePlotlyFigure = (raw: unknown): NormalizedPlotlyFigure => {
     return {};
 };
 
+const clonePlotlyValue = <T,>(value: T): T => {
+    if (value == null) return value;
+
+    try {
+        return structuredClone(value);
+    } catch {
+        try {
+            return JSON.parse(JSON.stringify(value)) as T;
+        } catch {
+            return value;
+        }
+    }
+};
+
 // Helper function to get the correct source with cache busting (consistent with Image.tsx and Html.tsx)
 const requestResourceSrc = (filePath: string, projectDir: string) => {
   try {
@@ -305,14 +319,27 @@ export const PlotlyComponent: React.FC<PlotlyItem> = (item) => {
         ? "w-full"
         : "w-full max-w-4xl mx-auto";
 
+    const resolvedHeight =
+        typeof layout.height === "number" && Number.isFinite(layout.height)
+            ? layout.height
+            : 420;
+
+    // Plotly mutates incoming data/layout objects during interactions.
+    // Clone to avoid cross-chart state leaks when source objects are shared.
+    const isolatedData = clonePlotlyValue(data);
+    const isolatedLayout = clonePlotlyValue({
+        ...layout,
+        height: resolvedHeight,
+    });
+
     return (
         <div
             className={`${outerClass} p-2 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700`}
-            style={{ minHeight: "450px" }}
+            style={{ minHeight: `${resolvedHeight}px` }}
         >
             <Plot
-                data={data}
-                layout={layout}
+                data={isolatedData}
+                layout={isolatedLayout}
                 config={{
                     responsive: true, 
                     // Only show the Plotly modebar when hovering, so it doesn't overlap long titles.
@@ -320,9 +347,9 @@ export const PlotlyComponent: React.FC<PlotlyItem> = (item) => {
                     ...(inlineFigure.config || {}),
                     ...item.config
                 }}
-                style={{width: "100%", height: "100%"}}
+                style={{ width: "100%", height: `${resolvedHeight}px` }}
                 useResizeHandler={true}
-                className="w-full h-full"
+                className="w-full"
             />
         </div>
     );

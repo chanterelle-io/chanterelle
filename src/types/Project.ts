@@ -9,6 +9,7 @@ export interface ProjectMeta {
         [tag_name: string]: string;
     };
     kind: 'model' | 'analytics' | 'interactive';
+    allow_feedback?: boolean;
 }
 
 // Generic "Insights" structure used by both Models and Analytics
