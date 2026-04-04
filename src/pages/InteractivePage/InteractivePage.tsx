@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import { invokeInteractive, InteractiveOutput } from "../../services/apis/invokeInteractive";
 import { ModelInput } from "../../types/ModelMeta";
@@ -7,11 +7,15 @@ import { ProjectMeta } from "../../types/Project";
 import { SectionComponent as Section } from "../../components/insights";
 import ModelInputField from "../../components/form/ModelInputField";
 import { getInputDefinition } from "../../components/form/inputs";
-import { Send, RefreshCw, AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
+import { Send, RefreshCw, AlertCircle, ArrowLeft, RotateCcw, History, ChevronRight } from "lucide-react";
 import { warmModel } from "../../services/apis/warmModel";
 import { resolveEffectiveConstraints } from "../../utils/formUtils";
 import { forceKillPython } from "../../services/apis/forceKillPython";
 import { stopInteractive } from "../../services/apis/stopInteractive";
+import { FeedbackForm } from "../../components/FeedbackForm";
+import { FeedbackList } from "../../components/FeedbackList";
+import { getFeedbackHistory, FeedbackEntry } from "../../services/apis/getFeedbackHistory";
+import { deleteFeedback } from "../../services/apis/deleteFeedback";
 // import { getModelMeta } from "../../services/apis/getModelMeta";
 // We reuse ModelMeta type for interactive definition if compatible?
 // Yes, we will just use it to type the project info we fetched.
@@ -61,6 +65,89 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
     const composerDockRef = useRef<HTMLDivElement>(null);
 
+    // Feedback State
+    const [allowFeedback, setAllowFeedback] = useState(false);
+    const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
+    const [showFeedbackHistory, setShowFeedbackHistory] = useState(false);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
+    const refreshFeedbackHistory = useCallback(() => {
+        if (allowFeedback && modelId) {
+            setLoadingHistory(true);
+            getFeedbackHistory(modelId).then(h => {
+                setFeedbackHistory(h);
+                setLoadingHistory(false);
+            });
+        }
+    }, [allowFeedback, modelId]);
+
+    useEffect(() => {
+        refreshFeedbackHistory();
+    }, [refreshFeedbackHistory]);
+
+    const [highlightedTurnId, setHighlightedTurnId] = useState<string | null>(null);
+    const feedbackTurnIdsRef = useRef<Set<string>>(new Set());
+
+    const handleDeleteFeedback = async (entry: FeedbackEntry) => {
+        if (!modelId) return;
+        setLoadingHistory(true);
+        try {
+            await deleteFeedback(modelId, entry.timestamp);
+            refreshFeedbackHistory();
+        } catch (e) {
+            console.error(e);
+            alert("Failed to delete feedback");
+            setLoadingHistory(false);
+        }
+    };
+
+    const handleSelectFeedback = (entry: FeedbackEntry) => {
+        const ctx = entry.feedback?.context;
+        if (!ctx) return;
+
+        // Remove any previously injected feedback turns
+        const prevIds = feedbackTurnIdsRef.current;
+
+        // Prefer restoring the full saved session snapshot when available.
+        // Older feedback entries may only contain a single inputs/outputs pair.
+        const turns: ConversationTurn[] = Array.isArray(ctx.sessionTurns) && ctx.sessionTurns.length > 0
+            ? ctx.sessionTurns
+                .filter((turn: any) => turn && (turn.type === "user" || turn.type === "agent"))
+                .map((turn: any) => ({
+                    ...buildTurn(turn.type, turn.content, turn.responseId, turn.completedAt),
+                    createdAt: typeof turn.createdAt === "number" ? turn.createdAt : Date.now(),
+                }))
+            : (() => {
+                const fallbackTurns: ConversationTurn[] = [];
+                if (ctx.inputs) {
+                    fallbackTurns.push(buildTurn("user", ctx.inputs));
+                }
+                if (ctx.outputs) {
+                    fallbackTurns.push(buildTurn("agent", ctx.outputs, undefined, Date.now()));
+                }
+                return fallbackTurns;
+            })();
+
+        if (turns.length === 0) return;
+
+        const focusTurn = [...turns].reverse().find((t) => t.type === "agent") || turns[turns.length - 1];
+        const newIds = new Set(turns.map((t) => t.id));
+        feedbackTurnIdsRef.current = newIds;
+
+        stickToBottomRef.current = true;
+        setHistory((prev) => [...prev.filter((t) => !prevIds.has(t.id)), ...turns]);
+
+        // Highlight the restored turn after render
+        requestAnimationFrame(() => {
+            setHighlightedTurnId(focusTurn.id);
+            const el = document.getElementById(`turn-${focusTurn.id}`);
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+            setTimeout(() => setHighlightedTurnId(null), 2000);
+        });
+    };
+
     const buildTurn = (type: "user" | "agent", content: any, responseId?: string, completedAt?: number): ConversationTurn => ({
         id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         type,
@@ -90,6 +177,9 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
                 // 1. Warm up the model (start python process)
                 const warmRes = await warmModel(modelId);
+                if (warmRes.allow_feedback) {
+                    setAllowFeedback(true);
+                }
                 if (!warmRes.warmup) {
                     throw new Error(warmRes.error || "Failed to start agent process");
                 }
@@ -382,6 +472,9 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         try {
             await forceKillPython();
             const warmRes = await warmModel(modelId);
+            if (warmRes.allow_feedback) {
+                setAllowFeedback(true);
+            }
             if (!warmRes.warmup) {
                 throw new Error(warmRes.error || "Failed to start agent process");
             }
@@ -553,7 +646,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     // For now, flat list inside a fragment
     
     return (
-        <div className="min-h-full bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col">
+        <div className="h-screen overflow-hidden bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col">
             <div
                 className={`sticky ${isMac ? 'top-0 z-50' : 'top-8 z-30'} px-6 py-2 bg-gray-50 dark:bg-slate-900/90 backdrop-blur mb-2 flex items-center justify-between`}
                 data-tauri-drag-region={isMac ? "true" : undefined}
@@ -589,10 +682,21 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                     >
                         <RotateCcw className={`mr-1 ${initializing || processing ? 'animate-spin' : ''}`} size={16} /> Restart
                     </button>
+                    {allowFeedback && (
+                        <button
+                            type="button"
+                            onClick={() => setShowFeedbackHistory(!showFeedbackHistory)}
+                            className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors ${showFeedbackHistory ? 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-400'}`}
+                            title={showFeedbackHistory ? "Hide feedback history" : "Show feedback history"}
+                        >
+                            {showFeedbackHistory ? <ChevronRight className="w-5 h-5" /> : <History className="w-5 h-5" />}
+                        </button>
+                    )}
                 </div>
             </div>
             
-            <main ref={historyContainerRef} className="flex-1 overflow-auto">
+            <div className="flex-1 min-h-0 flex overflow-hidden">
+            <main ref={historyContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
                 <div
                     ref={historyContentRef}
                     className="max-w-4xl mx-auto w-full px-4 py-6"
@@ -618,7 +722,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
                 <div className="space-y-6">
                     {history.map((msg, idx) => (
-                        <div key={msg.id || idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div key={msg.id || idx} id={`turn-${msg.id}`} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'} transition-colors duration-700 rounded-lg ${highlightedTurnId === msg.id ? 'bg-blue-100/60 dark:bg-blue-900/30' : ''}`}>
                             <div className={`${msg.type === 'user' ? 'max-w-[85%]' : 'w-full max-w-4xl min-w-0'} ${
                                 msg.type === 'user' 
                                     ? 'rounded-[12px] px-4 py-3 shadow-sm ring-1 ring-slate-300/90 dark:ring-slate-500/80 bg-slate-100 dark:bg-slate-700/80' 
@@ -659,6 +763,21 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                                         </div>
                                     </div>
                                 )}
+                                {/* Show feedback on the last completed agent turn */}
+                                {allowFeedback && modelId && msg.type === "agent" && msg.completedAt && idx === history.length - 1 && !processing && (
+                                    <FeedbackForm
+                                        projectName={modelId}
+                                        context={{
+                                            inputs: idx > 0 && history[idx - 1]?.type === "user" ? history[idx - 1].content : undefined,
+                                            outputs: msg.content,
+                                            sessionTurns: history,
+                                        }}
+                                        onFeedbackSubmitted={() => {
+                                            refreshFeedbackHistory();
+                                            if (!showFeedbackHistory) setShowFeedbackHistory(true);
+                                        }}
+                                    />
+                                )}
                             </div>
                         </div>
                     ))}
@@ -690,6 +809,32 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
                 </div>
             </main>
+
+            {/* Feedback History Sidebar */}
+            {allowFeedback && showFeedbackHistory && (
+                <div className="w-[300px] h-full shrink-0 border-l border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/50 flex flex-col overflow-hidden">
+                    <div className="p-2 flex justify-between items-center border-b border-gray-200 dark:border-slate-700">
+                        <h3 className="font-medium text-gray-900 dark:text-gray-100">Feedback History</h3>
+                        <button
+                            type="button"
+                            onClick={() => setShowFeedbackHistory(false)}
+                            className="p-1 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                            title="Hide feedback history"
+                        >
+                            <ChevronRight className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div className="p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                        <FeedbackList
+                            history={feedbackHistory}
+                            loading={loadingHistory}
+                            onDelete={handleDeleteFeedback}
+                            onSelect={handleSelectFeedback}
+                        />
+                    </div>
+                </div>
+            )}
+            </div>
 
             {/* Input Area (sticky, always visible) */}
             <div

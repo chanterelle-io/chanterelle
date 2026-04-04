@@ -175,4 +175,5 @@ pub struct ProjectMeta {
     pub description_short: String,
     pub tags: Option<HashMap<String, String>>,
     pub kind: String, // "model" or "analytics" or "interactive"
+    pub allow_feedback: Option<bool>,
 }

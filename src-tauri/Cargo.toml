@@ -1,7 +1,7 @@
 [package]
 name = "chanterelle"
-version = "0.1.1"
-description = "Deploy ML on your local machine"
+version = "1.0.0"
+description = "Catalog and share your ML in a proper way"
 authors = ["Ali El Adi"]
 edition = "2021"
 

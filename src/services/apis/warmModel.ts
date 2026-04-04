@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 export type WarmResponse = {
     warmup: boolean;
     error?: string;
+    allow_feedback?: boolean;
 };
 
 export async function warmModel(project_name: string): Promise<WarmResponse> {
