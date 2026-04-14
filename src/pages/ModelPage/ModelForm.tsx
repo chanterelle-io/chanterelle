@@ -32,6 +32,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     const [presetSelections, setPresetSelections] = useState<{ [presetName: string]: string }>({});
     const [result, setResult] = useState<SectionType[] | null>(null);
     const [predictLoading, setPredictLoading] = useState(false);
+    const [predictionKey, setPredictionKey] = useState(0);
     const requestSeqRef = React.useRef(0);
     
     // Feedback state
@@ -146,6 +147,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setPredictLoading(true);
+        setPredictionKey(k => k + 1);
         const requestSeq = ++requestSeqRef.current;
         // Validate all required inputs
         const errors: string[] = [];
@@ -355,6 +357,7 @@ const ModelForm: React.FC<ModelFormProps> = ({ model }) => {
                     {model.allow_feedback && modelId && (
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
                             <FeedbackForm
+                                key={predictionKey}
                                 projectName={modelId}
                                 context={{ inputs: values, outputs: result }}
                                 onFeedbackSubmitted={() => {
