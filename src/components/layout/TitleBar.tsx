@@ -3,6 +3,8 @@ import chanterelleLogo from '../../assets/chanterelle.png';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useEffect, useState } from 'react';
 
+// This custom title bar is mainly for Windows/Linux, as macOS has its own native title bar with built-in controls. On macOS, we render a simple draggable area without custom controls to preserve the native look and feel. On Windows/Linux, we provide a custom title bar with minimize, maximize, and close buttons, as well as a theme toggle.
+
 const TitleBar = () => {
   const { theme, toggleTheme } = useTheme();
   const [isMac, setIsMac] = useState(false);

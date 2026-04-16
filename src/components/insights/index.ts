@@ -6,3 +6,6 @@ export type { SectionType, SectionOrItemType, DropdownConfig, DropdownOption, Su
 export { componentRegistry } from './componentRegistry';
 export type { ComponentRegistry } from './componentRegistry';
 
+// Layout
+export { default as InsightsLayout } from './InsightsLayout';
+

@@ -1,71 +1,13 @@
 import React from "react";
 import { AnalyticsInsightsType } from "../../types/Project";
-import { SectionOrItemType, SectionType, SectionComponent } from "../../components/insights";
-import { componentRegistry } from "../../components/insights";
+import { InsightsLayout } from "../../components/insights";
 
-// Helper to generate consistent IDs
-const slugify = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-// Recursive helper to flatten all items for ToC (sections and all insight items)
-function getAllItemsForToc(
-  items: SectionOrItemType[] | undefined,
-  level = 1,
-  parentId = ""
-): { id: string; title: string; level: number; type: string }[] {
-  let toc: { id: string; title: string; level: number; type: string }[] = [];
-  
-  const safeItems = items ?? [];
-
-  safeItems.forEach((item, index) => {
-    // Compose a unique id consistent with Section.tsx logic
-    let localId = item.id;
-    if (!localId) {
-      localId = item.title
-        ? slugify(item.title)
-        : (item.type === 'section' ? `section-${index}` : `item-${index}`);
-    }
-
-    const itemId = parentId ? `${parentId}__${localId}` : localId;
-
-    // Only add if there's a title and id
-    if (item.title && itemId) {
-      toc.push({ id: itemId, title: item.title, level, type: item.type });
-    }
-    // If section, recurse into its items or subsections
-    if (item.type === "section") {
-      const section = item as SectionType;
-      // Handle sections with dropdown/subsections
-      if (section.dropdown && section.subsections) {
-        // Add items from all subsections to ToC
-        // Object.values(section.subsections).forEach(subsection => {
-        //   toc = toc.concat(getAllItemsForToc(subsection.items, level + 1, itemId));
-        // });
-        // continue; // Skip adding section itself, only its items
-      }
-      // Handle traditional sections with direct items (no dropdown)
-      else if (section.items) {
-        toc = toc.concat(getAllItemsForToc(section.items, level + 1, itemId));
-      }
-    }
-  });
-
-  return toc;
-}
-
-// --- Main page layout ---
 interface AnalyticsInsightsProps {
   insights: AnalyticsInsightsType;
 }
 
 const AnalyticsInsights: React.FC<AnalyticsInsightsProps> = ({ insights }) => {
-  // const insights = model
-  // Build Table of Content (ToC) from all items in all top-level sections
   const content = Array.isArray(insights?.content) ? insights.content : [];
-  const tocSections = getAllItemsForToc(content);
 
   if (content.length === 0) {
     return (
@@ -78,47 +20,7 @@ const AnalyticsInsights: React.FC<AnalyticsInsightsProps> = ({ insights }) => {
     );
   }
 
-  return (
-  <div className="flex">
-      {/* Sidebar */}
-      {tocSections.length > 0 && (
-        <aside className="w-64 flex-shrink-0 sticky top-12 self-start overflow-hidden bg-gray-50 dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 p-4">
-          <h2 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">Table of Contents</h2>
-          <ul>
-            {tocSections.map((sec) => {
-              const IconComponent = componentRegistry[sec.type]?.icon;
-              return (
-                <li
-                  key={sec.id}
-                  style={{ marginLeft: `${(sec.level - 1) * 0.5}rem` }}
-                  className="mb-2 flex items-center"
-                >
-                  <button
-                    onClick={() => {
-                      const element = document.getElementById(sec.id);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }
-                    }}
-                    className="flex items-center text-blue-700 dark:text-blue-400 text-sm hover:underline cursor-pointer bg-transparent border-none p-0 text-left"
-                  >
-                    {IconComponent && <IconComponent />}
-                    {sec.title}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-      )}
-      {/* Main Content */}
-      <main className="flex-1 px-4 max-w-7xl mx-auto text-slate-800 dark:text-slate-100">
-        {content.map((section, idx) => (
-          <SectionComponent key={section.id || idx} section={section} index={idx} />
-        ))}
-      </main>
-    </div>
-  )
+  return <InsightsLayout content={content} />;
 };
 
 export default AnalyticsInsights;

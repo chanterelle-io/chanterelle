@@ -213,7 +213,7 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
     );
 
     return (
-        <div className={`${hasTitle ? `p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}` : ''}`}>
+        <div id={sectionId} className={`scroll-mt-14 ${hasTitle ? `p-4 border rounded-lg mb-4 ${getColorClasses(section.color)}` : ''}`}>
             {section.collapsible && section.title ? (
                 <details open={!section.collapsed} className="group">
                     <summary className="list-none cursor-pointer select-none">
@@ -277,7 +277,7 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
         const summaryLabel = item.title || item.description || item.type.replace(/_/g, " ");
 
         return (
-            <div key={localId} id={itemId} className="" data-toc>
+            <div key={localId} id={itemId} className="scroll-mt-14" data-toc>
                 {isCollapsible ? (
                     <details open={!startsCollapsed} className="group rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 p-3">
                         <summary className="list-none cursor-pointer select-none">
