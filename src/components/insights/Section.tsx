@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { CircleMinus, CirclePlus } from "lucide-react";
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -217,7 +218,12 @@ export const SectionComponent: React.FC<SectionComponentProps> = ({
                 <details open={!section.collapsed} className="group">
                     <summary className="list-none cursor-pointer select-none">
                         <div className={headingClass}>
-                            <span className="mr-2 text-slate-500 transition-transform group-open:rotate-90">{">"}</span>
+                            <span className="mr-2 text-slate-500 group-open:hidden">
+                                <CirclePlus size={16} />
+                            </span>
+                            <span className="mr-2 hidden text-slate-500 group-open:inline">
+                                <CircleMinus size={16} />
+                            </span>
                             <h2 className="flex-1">{section.title}</h2>
                         </div>
                     </summary>
@@ -276,7 +282,12 @@ export const renderSectionOrItem = (item: SectionOrItemType, level = 1, parentId
                     <details open={!startsCollapsed} className="group rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 p-3">
                         <summary className="list-none cursor-pointer select-none">
                             <h4 className="text-lg font-semibold mb-1 flex items-center">
-                                <span className="mr-2 text-slate-500 transition-transform group-open:rotate-90">{">"}</span>
+                                <span className="mr-2 text-slate-500 group-open:hidden">
+                                    <CirclePlus size={16} />
+                                </span>
+                                <span className="mr-2 hidden text-slate-500 group-open:inline">
+                                    <CircleMinus size={16} />
+                                </span>
                                 {IconComponent && <IconComponent />}
                                 <span className="capitalize">{summaryLabel}</span>
                             </h4>

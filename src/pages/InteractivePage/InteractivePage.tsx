@@ -135,7 +135,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         feedbackTurnIdsRef.current = newIds;
 
         stickToBottomRef.current = true;
-        setHistory((prev) => [...prev.filter((t) => !prevIds.has(t.id)), ...turns]);
+        setHistory(turns);
 
         // Highlight the restored turn after render
         requestAnimationFrame(() => {
@@ -644,6 +644,9 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
     // Helper to group inputs (reuse existing components if possible, or simple list)
     // For now, flat list inside a fragment
+    const controlButtonClass = "inline-flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border transition-all disabled:text-gray-400 disabled:cursor-not-allowed";
+    const restartButtonClass = `${controlButtonClass} text-blue-600 hover:text-blue-400 dark:hover:text-blue-500 border-gray-200 dark:border-slate-600`;
+    const stopButtonClass = `${controlButtonClass} text-red-600 hover:text-red-500 dark:hover:text-red-400 border-gray-200 dark:border-slate-600`;
     
     return (
         <div className="h-screen overflow-hidden bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 flex flex-col">
@@ -668,7 +671,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                         <button
                             onClick={handleStopExecution}
                             disabled={initializing || stopping}
-                            className="mr-2 px-2 border border-red-500 flex items-center text-red-600 hover:text-red-500 dark:hover:text-red-400 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                            className={`${stopButtonClass} mr-2`}
                             title="Stop Execution"
                         >
                             {stopping ? "Stopping..." : "Stop"}
@@ -677,10 +680,10 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                     <button
                         onClick={restartSession}
                         disabled={initializing || processing}
-                        className="mr-4 px-2 border border-blue-600 flex items-center text-blue-600 hover:text-blue-400 dark:hover:text-blue-500 hover:cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                        className={`${restartButtonClass} mr-4`}
                         title="Restart Session"
                     >
-                        <RotateCcw className={`mr-1 ${initializing || processing ? 'animate-spin' : ''}`} size={16} /> Restart
+                        <RotateCcw className={initializing || processing ? 'animate-spin' : ''} size={16} /> Restart
                     </button>
                     {allowFeedback && (
                         <button
@@ -946,7 +949,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
                                 type="button"
                                 onClick={restartSession}
                                 disabled={initializing || processing}
-                                className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-500 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                className={restartButtonClass}
                                 title="Restart Session"
                             >
                                 <RotateCcw className={`${initializing || processing ? 'animate-spin' : ''}`} size={16} />
