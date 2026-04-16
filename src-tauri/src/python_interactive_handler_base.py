@@ -165,12 +165,68 @@ class InteractiveHandler:
     def __init__(self, handler_module_path: str):
         self.module = load_user_handler_module(handler_module_path)
 
+    @staticmethod
+    def _extract_conversation_history(session_turns: list) -> list:
+        """Convert UI-level session turns into simplified role/content pairs."""
+        history = []
+        for turn in session_turns:
+            if not isinstance(turn, dict):
+                continue
+            role = turn.get("type")
+            content = turn.get("content")
+            if role == "user":
+                # UserDisplay: {kind: "text", text: "..."} or {kind: "fields", fields: [...]}
+                if isinstance(content, dict):
+                    if content.get("kind") == "text":
+                        text = content.get("text", "")
+                    elif content.get("kind") == "fields":
+                        parts = [f"{f.get('label', '')}: {f.get('value', '')}"
+                                 for f in content.get("fields", [])]
+                        text = "\n".join(parts)
+                    else:
+                        text = str(content)
+                else:
+                    text = str(content) if content else ""
+                if text:
+                    history.append({"role": "user", "content": text})
+            elif role == "agent":
+                # Agent content is an array of sections — extract markdown text
+                if isinstance(content, list):
+                    texts = []
+                    for section in content:
+                        if not isinstance(section, dict):
+                            continue
+                        for item in section.get("items", []):
+                            if not isinstance(item, dict):
+                                continue
+                            if item.get("type") == "markdown":
+                                texts.append(item.get("content", ""))
+                            elif item.get("type") == "text":
+                                # text items may have content array with paragraphs
+                                for block in item.get("content", []):
+                                    if isinstance(block, dict):
+                                        texts.append(block.get("text", ""))
+                    text = "\n\n".join(t for t in texts if t)
+                else:
+                    text = str(content) if content else ""
+                if text:
+                    history.append({"role": "assistant", "content": text})
+        return history
+
     def handle_message(self, data: Dict[str, Any]) -> Any:
         try:
             command = data.get("command")
             if command == "initialize":
-                # Call self.module.initialize()
                 if hasattr(self.module, "initialize"):
+                    # If session_turns are provided, build conversation_history
+                    # and pass it if initialize() accepts the argument.
+                    session_turns = data.get("session_turns")
+                    if session_turns and isinstance(session_turns, list):
+                        import inspect
+                        sig = inspect.signature(self.module.initialize)
+                        if "conversation_history" in sig.parameters:
+                            history = self._extract_conversation_history(session_turns)
+                            return self.module.initialize(conversation_history=history)
                     return self.module.initialize()
                 else:
                     return {"status": "ready", "message": "Initialized (no initialize() method found)"}

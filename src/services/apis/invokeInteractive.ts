@@ -33,6 +33,7 @@ export async function invokeInteractive(
     inputs: ModelInputs, 
     onData: InteractiveCallback,
     requestId?: string,
+    sessionTurns?: any[],
 ): Promise<UnlistenFn> {
     console.log('Starting interactive session for:', projectName);
 
@@ -45,7 +46,7 @@ export async function invokeInteractive(
     // Kick off the Rust command but do NOT await it here.
     // In dev, React StrictMode can mount/unmount/remount quickly; awaiting here delays
     // exposing `unlisten`, which can lead to multiple active listeners and duplicated outputs.
-    void invoke('invoke_interactive', { projectName: projectName, inputs: inputs, requestId })
+    void invoke('invoke_interactive', { projectName: projectName, inputs: inputs, requestId, sessionTurns: sessionTurns || null })
         .catch((e: any) => {
             console.error("Error invoking interactive:", e);
             onData({ error: typeof e === 'string' ? e : e.message || "Unknown error" });

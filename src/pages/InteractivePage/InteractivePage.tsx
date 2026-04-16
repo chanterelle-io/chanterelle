@@ -16,6 +16,7 @@ import { FeedbackForm } from "../../components/FeedbackForm";
 import { FeedbackList } from "../../components/FeedbackList";
 import { getFeedbackHistory, FeedbackEntry } from "../../services/apis/getFeedbackHistory";
 import { deleteFeedback } from "../../services/apis/deleteFeedback";
+import { updateFeedback } from "../../services/apis/updateFeedback";
 // import { getModelMeta } from "../../services/apis/getModelMeta";
 // We reuse ModelMeta type for interactive definition if compatible?
 // Yes, we will just use it to type the project info we fetched.
@@ -58,6 +59,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const [composerDockHeight, setComposerDockHeight] = useState(220);
     const unlistenFnRef = useRef<Function | null>(null);
     const currentRequestIdRef = useRef<string | null>(null);
+    const feedbackRestoreRequestRef = useRef<string | null>(null);
     const historyContainerRef = useRef<HTMLElement>(null);
     const historyContentRef = useRef<HTMLDivElement>(null);
     const historyEndRef = useRef<HTMLDivElement>(null);
@@ -70,6 +72,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
     const [showFeedbackHistory, setShowFeedbackHistory] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const activeFeedbackTimestampRef = useRef<number | null>(null);
 
     const refreshFeedbackHistory = useCallback(() => {
         if (allowFeedback && modelId) {
@@ -86,7 +89,6 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
     }, [refreshFeedbackHistory]);
 
     const [highlightedTurnId, setHighlightedTurnId] = useState<string | null>(null);
-    const feedbackTurnIdsRef = useRef<Set<string>>(new Set());
 
     const handleDeleteFeedback = async (entry: FeedbackEntry) => {
         if (!modelId) return;
@@ -103,10 +105,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
 
     const handleSelectFeedback = (entry: FeedbackEntry) => {
         const ctx = entry.feedback?.context;
-        if (!ctx) return;
-
-        // Remove any previously injected feedback turns
-        const prevIds = feedbackTurnIdsRef.current;
+        if (!ctx || !modelId) return;
 
         // Prefer restoring the full saved session snapshot when available.
         // Older feedback entries may only contain a single inputs/outputs pair.
@@ -131,11 +130,32 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         if (turns.length === 0) return;
 
         const focusTurn = [...turns].reverse().find((t) => t.type === "agent") || turns[turns.length - 1];
-        const newIds = new Set(turns.map((t) => t.id));
-        feedbackTurnIdsRef.current = newIds;
+
+        // Track which feedback entry is active so new turns get saved back to it
+        activeFeedbackTimestampRef.current = entry.timestamp;
 
         stickToBottomRef.current = true;
         setHistory(turns);
+        setError(null);
+
+        // Re-initialize the Python handler with conversation history
+        // so the backend rebuilds its state from the feedback turns.
+        setProcessing(true);
+        setCurrentFormInputs(null);
+        if (unlistenFnRef.current) unlistenFnRef.current();
+
+        const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        currentRequestIdRef.current = requestId;
+        feedbackRestoreRequestRef.current = requestId;
+
+        // Pass the raw session turns so the base handler can extract conversation_history
+        const rawTurns = Array.isArray(ctx.sessionTurns) ? ctx.sessionTurns : turns;
+        invokeInteractive(modelId, {}, handleOutput, requestId, rawTurns)
+            .then((unlisten) => { unlistenFnRef.current = unlisten; })
+            .catch((e: any) => {
+                setError(e.toString());
+                setProcessing(false);
+            });
 
         // Highlight the restored turn after render
         requestAnimationFrame(() => {
@@ -253,8 +273,49 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         return () => observer.disconnect();
     }, [processing, initializing, stopping]);
 
+    // Auto-save conversation back to the active feedback entry when a turn completes
+    useEffect(() => {
+        const ts = activeFeedbackTimestampRef.current;
+        if (!ts || !modelId || processing || history.length === 0) return;
+        // Only save when the last agent turn is completed
+        const lastAgent = [...history].reverse().find((t) => t.type === "agent");
+        if (!lastAgent?.completedAt) return;
+
+        const context = {
+            sessionTurns: history,
+            inputs: (() => {
+                const userTurns = history.filter((t: ConversationTurn) => t.type === "user");
+                return userTurns.length > 0 ? userTurns[userTurns.length - 1].content : undefined;
+            })(),
+            outputs: lastAgent.content,
+        };
+        updateFeedback(modelId, ts, context).then(() => {
+            refreshFeedbackHistory();
+        }).catch((e) => {
+            console.error("Failed to auto-save feedback:", e);
+        });
+    }, [history, processing, modelId]);
+
     const handleOutput = (data: InteractiveOutput) => {
         if (data.request_id && currentRequestIdRef.current && data.request_id !== currentRequestIdRef.current) {
+            return;
+        }
+
+        // Feedback restore re-initialize: skip adding outputs to history,
+        // only pick up next_inputs so the user can continue the conversation.
+        if (feedbackRestoreRequestRef.current && data.request_id === feedbackRestoreRequestRef.current) {
+            feedbackRestoreRequestRef.current = null;
+            if (data.next_inputs) {
+                setCurrentFormInputs(data.next_inputs);
+                const defaults: ModelInputs = {};
+                data.next_inputs.forEach(input => {
+                    const def = getInputDefinition(input.type);
+                    defaults[input.name] = def ? def.getDefaultValue(input) : "";
+                });
+                setInputValues(defaults);
+            }
+            setProcessing(false);
+            setStopping(false);
             return;
         }
 
@@ -465,6 +526,7 @@ const InteractivePage: React.FC<InteractivePageProps> = () => {
         setProcessing(false);
         setWasStopped(false);
         currentRequestIdRef.current = null;
+        activeFeedbackTimestampRef.current = null;
         stickToBottomRef.current = true;
         requestAnimationFrame(() => scrollHistoryToBottom("instant"));
 

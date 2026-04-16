@@ -81,6 +81,7 @@ async fn invoke_interactive(
     project_name: String,
     inputs: HashMap<String, serde_json::Value>,
     request_id: Option<String>,
+    session_turns: Option<Vec<serde_json::Value>>,
     window: tauri::Window,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -88,7 +89,7 @@ async fn invoke_interactive(
         let settings = state.settings.lock().unwrap();
         settings.projects_directory.clone()
     };
-    python_runner_io::run_interactive(&projects_dir, &project_name, inputs, request_id, window, state).await
+    python_runner_io::run_interactive(&projects_dir, &project_name, inputs, request_id, session_turns, window, state).await
 }
 
 #[tauri::command]
@@ -233,6 +234,66 @@ async fn delete_feedback(
 }
 
 #[tauri::command]
+async fn update_feedback(
+    project_name: String,
+    timestamp: u64,
+    context: serde_json::Value,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let projects_dir = {
+        let settings = state.settings.lock().unwrap();
+        settings.projects_directory.clone()
+    };
+
+    let feedback_file = std::path::Path::new(&projects_dir)
+        .join(&project_name)
+        .join("feedback.jsonl");
+
+    if !feedback_file.exists() {
+        return Err("Feedback file not found".to_string());
+    }
+
+    let file = std::fs::File::open(&feedback_file)
+        .map_err(|e| format!("Failed to open feedback file: {}", e))?;
+    let reader = std::io::BufReader::new(file);
+
+    use std::io::BufRead;
+    let mut lines = Vec::new();
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
+        if line.trim().is_empty() { continue; }
+
+        match serde_json::from_str::<serde_json::Value>(&line) {
+            Ok(mut entry) => {
+                let entry_ts = entry["timestamp"].as_u64().unwrap_or(0);
+                if entry_ts == timestamp {
+                    // Update the context within the feedback object
+                    if let Some(fb) = entry.get_mut("feedback") {
+                        fb["context"] = context.clone();
+                    }
+                    lines.push(serde_json::to_string(&entry).unwrap());
+                } else {
+                    lines.push(line);
+                }
+            },
+            Err(_) => lines.push(line),
+        }
+    }
+
+    use std::io::Write;
+    let mut file = std::fs::File::create(&feedback_file)
+        .map_err(|e| format!("Failed to open feedback file for writing: {}", e))?;
+
+    for line in lines {
+        writeln!(file, "{}", line)
+            .map_err(|e| format!("Failed to write feedback: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_feedback_history(
     project_name: String,
     state: tauri::State<'_, AppState>,
@@ -339,6 +400,7 @@ fn main() {
             submit_feedback,
             get_feedback_history,
             delete_feedback,
+            update_feedback,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

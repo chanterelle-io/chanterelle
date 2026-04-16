@@ -31,8 +31,15 @@ Interactive projects enable multi-turn conversational agents with dynamic forms 
 Interactive handlers implement 2 functions:
 
 ```python
-def initialize():
-    """Called when session starts. Return greeting and first form."""
+def initialize(conversation_history=None):
+    """Called when session starts (or restarts from feedback).
+    
+    Args:
+        conversation_history: Optional list of {"role": "user"|"assistant", "content": "..."}
+                              dicts from a previous session. Passed when the user
+                              resumes from a feedback entry. Omit the parameter
+                              entirely if you don't need conversation restore.
+    """
     return {
         "outputs": [...],       # Sections to display (same as model_findings content)
         "next_inputs": [...]    # Input definitions for the next form
@@ -44,6 +51,17 @@ def on_input(data):
         "outputs": [...],       # Sections to display
         "next_inputs": [...]    # Input definitions for the next form
     }
+```
+
+The `conversation_history` parameter is **opt-in**: if your `initialize()` doesn't declare it, Chanterelle calls `initialize()` with no arguments as usual. When declared, it receives a list of simplified role/content message dicts extracted from the UI conversation, e.g.:
+
+```python
+[
+    {"role": "user", "content": "show me top 5 products"},
+    {"role": "assistant", "content": "Here are the top 5 products by revenue..."},
+    {"role": "user", "content": "now show that as a bar chart"},
+    {"role": "assistant", "content": "Here's the bar chart of the top 5 products..."}
+]
 ```
 
 ### Response Object
@@ -71,15 +89,17 @@ The Python process persists across turns. Use module-level variables for state:
 history = []
 user_name = None
 
-def initialize():
+def initialize(conversation_history=None):
     global history, user_name
     history = []
     user_name = None
+    if conversation_history:
+        history = conversation_history  # Restore from feedback session
     return {"outputs": [...], "next_inputs": [...]}
 
 def on_input(data):
     global user_name
-    history.append(data)
+    history.append({"role": "user", "content": data.get("message", "")})
     if "username" in data:
         user_name = data["username"]
     # Use history and user_name for context-aware responses

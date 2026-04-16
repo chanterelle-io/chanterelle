@@ -341,6 +341,7 @@ pub async fn run_interactive(
     _project_name: &str,
     inputs: HashMap<String, serde_json::Value>,
     request_id: Option<String>,
+    session_turns: Option<Vec<serde_json::Value>>,
     window: tauri::Window,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
@@ -351,10 +352,14 @@ pub async fn run_interactive(
     validate_process_alive(process)?;
     
     let request_payload = if inputs.is_empty() {
-        serde_json::json!({
+        let mut payload = serde_json::json!({
             "command": "initialize",
             "request_id": request_id
-        })
+        });
+        if let Some(turns) = session_turns {
+            payload["session_turns"] = serde_json::Value::Array(turns);
+        }
+        payload
     } else {
         serde_json::json!({
             "command": "on_input",
